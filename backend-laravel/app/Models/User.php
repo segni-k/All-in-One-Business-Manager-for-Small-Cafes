@@ -6,21 +6,27 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
+
+/**
+ * @method \Laravel\Sanctum\NewAccessToken createToken(string $name, array $abilities = ['*'])
+ */
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
      */
-    protected $fillable = [
+     protected $fillable = [
         'name',
         'email',
         'password',
+        'role_id',
     ];
 
     /**
@@ -32,6 +38,23 @@ class User extends Authenticatable
         'password',
         'remember_token',
     ];
+
+    
+    public function role()
+    {
+        return $this->belongsTo(StaffRole::class, 'role_id');
+    }
+
+    // Mutator for password hashing
+    public function setPasswordAttribute($password)
+    {
+        $this->attributes['password'] = bcrypt($password);
+    }
+    
+    public function isAdmin(): bool
+    {
+        return $this->role?->name === 'Admin';
+    }
 
     /**
      * Get the attributes that should be cast.
@@ -46,3 +69,6 @@ class User extends Authenticatable
         ];
     }
 }
+
+
+
