@@ -19,7 +19,7 @@ return new class extends Migration {
         DB::table('staff_roles')->insert([
             ['name' => 'Admin', 'description' => 'Full access'],
             ['name' => 'Cashier', 'description' => 'POS access only'],
-            ['name' => 'Inventory', 'description' => 'Manage stock'],
+            ['name' => 'Manager', 'description' => 'Manage stock'],
         ]);
     }
 

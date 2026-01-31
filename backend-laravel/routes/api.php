@@ -2,8 +2,10 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Staff\StaffController;
 use App\Http\Controllers\POS\OrderController;
+use App\Http\Controllers\ReportController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -28,5 +30,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/orders', [OrderController::class, 'store']);
         Route::put('/orders/{id}', [OrderController::class, 'update']);
         Route::post('/orders/{id}/cancel', [OrderController::class, 'cancel']);
+    });
+    Route::middleware('role:Admin,Manager')->group(function () {
+        Route::get('/reports/daily', [ReportController::class, 'daily']);
+        Route::get('/reports/monthly', [ReportController::class, 'monthly']);
+        Route::get('/dashboard', [DashboardController::class, 'index']);
     });
 });
