@@ -4,6 +4,7 @@ namespace App\Http\Controllers\POS;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use App\Services\POSService;
 use Illuminate\Support\Facades\DB;
@@ -47,23 +48,41 @@ class OrderController extends Controller
 
 
     public function cancel($id)
-    {
-        $order = Order::with('items.product')->findOrFail($id);
+{
+    $order = Order::with('items.product')->findOrFail($id);
 
-        if ($order->status === 'cancelled') {
-            return response()->json(['message' => 'Already cancelled'], 400);
-        }
+    if ($order->status === 'cancelled') {
+        return response()->json([
+            'message' => 'Order is already cancelled'
+        ], 400);
+    }
 
+    // Only allow cancelling pending or paid orders
+    if (!in_array($order->payment_status, ['pending', 'paid'])) {
+        return response()->json([
+            'message' => 'This order cannot be cancelled'
+        ], 403);
+    }
+
+    return DB::transaction(function () use ($order) {
+
+        // 1️⃣ Restore stock
         foreach ($order->items as $item) {
             $item->product->increment('stock', $item->quantity);
         }
 
+        // 2️⃣ Update order status and payment status
         $order->status = 'cancelled';
-        $order->payment_status = 'refunded';
+        if ($order->payment_status === 'paid') {
+            $order->payment_status = 'refunded';
+        }
         $order->save();
 
-        return response()->json(['message' => 'Order cancelled']);
-    }
+        // 3️⃣ Return full order details
+        return $order->load('items.product', 'customer', 'user');
+    });
+}
+
 
 
     public function update(Request $request, $id)
