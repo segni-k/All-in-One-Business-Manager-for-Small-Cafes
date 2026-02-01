@@ -11,7 +11,7 @@ class InventoryService
     protected int $lowStockThreshold = 5; // configurable default threshold
 
     // Add stock
-    public function addStock(Product $product, int $quantity, string $notes = null)
+    public function addStock(Product $product, int $quantity, ?string $notes = null)
     {
         $product->increment('stock', $quantity);
 
@@ -26,7 +26,7 @@ class InventoryService
     }
 
     // Remove stock
-    public function removeStock(Product $product, int $quantity, $order_id = null, string $notes = null)
+    public function removeStock(Product $product, int $quantity, $order_id = null, ?string $notes = null)
     {
         if ($product->stock < $quantity) {
             throw new HttpException(422, "Not enough stock for {$product->name}");
