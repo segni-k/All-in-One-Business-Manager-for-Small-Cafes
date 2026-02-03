@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\HasApiTokens;
 
 
@@ -22,11 +23,12 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
-     protected $fillable = [
+    protected $fillable = [
         'name',
         'email',
         'password',
         'role_id',
+        'is_active'
     ];
 
     /**
@@ -39,7 +41,7 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    
+
     public function role()
     {
         return $this->belongsTo(StaffRole::class, 'role_id');
@@ -48,13 +50,31 @@ class User extends Authenticatable
     // Mutator for password hashing
     public function setPasswordAttribute($password)
     {
-        $this->attributes['password'] = bcrypt($password);
+        if (! empty($password)) {
+            $this->attributes['password'] = Hash::make($password);
+        }
     }
-    
+
     public function isAdmin(): bool
     {
-        return $this->role?->name === 'Admin';
+        return strtolower($this->role?->name ?? '') === 'admin';
     }
+
+    /*
+
+     public function hasPermission(string $permission): bool
+     {
+        return $this->role
+            ->permissions
+          ->pluck('name')
+        ->contains($permission);
+     }
+    */
+    public function hasPermission(string $permission): bool
+    {
+        return $this->role?->permissions?->pluck('name')->contains($permission) ?? false;
+    }
+
 
     /**
      * Get the attributes that should be cast.
@@ -65,10 +85,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 }
-
-
-
