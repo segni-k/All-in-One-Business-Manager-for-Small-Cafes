@@ -9,7 +9,7 @@ use App\Http\Controllers\Staff\StaffController;
 use App\Http\Controllers\POS\OrderController;
 use App\Http\Controllers\ReportController;
 
-Route::post('/register', [AuthController::class, 'register']);
+
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -18,11 +18,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
 
     // Admin-only staff management
-    Route::middleware('role:Admin')->group(function () {
+    Route::middleware('permission:manage_staff')->group(function () {
         Route::get('/staff', [StaffController::class, 'index']);
         Route::post('/staff', [StaffController::class, 'store']);
-        Route::put('/staff/{id}', [StaffController::class, 'update']);
-        Route::delete('/staff/{id}', [StaffController::class, 'destroy']);
+        Route::put('/staff/{user}', [StaffController::class, 'update']);
+        Route::delete('/staff/{user}', [StaffController::class, 'destroy']);
     });
 
     // Admin & Cashier orders
