@@ -16,11 +16,13 @@ return new class extends Migration {
         });
 
         // Optional: add some default roles
+        /*
         DB::table('staff_roles')->insert([
             ['name' => 'Admin', 'description' => 'Full access'],
             ['name' => 'Cashier', 'description' => 'POS access only'],
             ['name' => 'Manager', 'description' => 'Manage stock'],
         ]);
+        */
     }
 
     public function down(): void
