@@ -3,7 +3,9 @@
 namespace App\Http;
 
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\Schedule;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 class Kernel extends HttpKernel
 {
@@ -25,9 +27,9 @@ class Kernel extends HttpKernel
      */
     protected $middlewareGroups = [
         'api' => [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            EnsureFrontendRequestsAreStateful::class,
             'throttle:api',
-            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            SubstituteBindings::class,
         ],
     ];
 
@@ -35,8 +37,9 @@ class Kernel extends HttpKernel
      * The application's route middleware.
      */
     protected $routeMiddleware = [
-        'role' => \App\Http\Middleware\RoleMiddleware::class,
+        //
     ];
+
 
     protected function schedule(Schedule $schedule)
     {
