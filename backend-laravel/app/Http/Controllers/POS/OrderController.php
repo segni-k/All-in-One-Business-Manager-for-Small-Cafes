@@ -4,35 +4,62 @@ namespace App\Http\Controllers\POS;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use App\Models\Product;
-use Illuminate\Http\Request;
 use App\Services\POSService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class OrderController extends Controller
 {
-    protected $posService;
+    protected POSService $posService;
 
     public function __construct(POSService $posService)
     {
         $this->posService = $posService;
+
     }
 
-    public function index()
+    /**
+     * List orders with pagination and optional filters
+     */
+    public function index(Request $request)
     {
-        return Order::with('items.product', 'customer', 'user')->latest()->get();
+        $query = Order::with('items.product', 'user')->latest();
+
+        // Optional filters
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->has('payment_status')) {
+            $query->where('payment_status', $request->payment_status);
+        }
+        if ($request->has('payment_method')) {
+            $query->where('payment_method', $request->payment_method);
+        }
+
+        $orders = $query->paginate(25); // paginated for production
+
+        return response()->json($orders);
     }
 
+    /**
+     * Get single order details
+     */
     public function show($id)
     {
-        return Order::with('items.product', 'customer', 'user')->findOrFail($id);
+        $order = Order::with('items.product', 'user')->findOrFail($id);
+
+        return response()->json($order);
     }
 
+    /**
+     * Create a new order
+     */
     public function store(Request $request)
     {
         $request->validate([
-            'customer_id' => 'nullable|exists:customers,id',
             'discount' => 'nullable|numeric|min:0',
+            'payment_method' => 'nullable|in:cash,card,mobile_money',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
@@ -46,50 +73,14 @@ class OrderController extends Controller
         return response()->json($order, 201);
     }
 
-
-    public function cancel($id)
-{
-    $order = Order::with('items.product')->findOrFail($id);
-
-    if ($order->status === 'cancelled') {
-        return response()->json([
-            'message' => 'Order is already cancelled'
-        ], 400);
-    }
-
-    // Only allow cancelling pending or paid orders
-    if (!in_array($order->payment_status, ['pending', 'paid'])) {
-        return response()->json([
-            'message' => 'This order cannot be cancelled'
-        ], 403);
-    }
-
-    return DB::transaction(function () use ($order) {
-
-        // 1️⃣ Restore stock
-        foreach ($order->items as $item) {
-            $item->product->increment('stock', $item->quantity);
-        }
-
-        // 2️⃣ Update order status and payment status
-        $order->status = 'cancelled';
-        if ($order->payment_status === 'paid') {
-            $order->payment_status = 'refunded';
-        }
-        $order->save();
-
-        // 3️⃣ Return full order details
-        return $order->load('items.product', 'customer', 'user');
-    });
-}
-
-
-
+    /**
+     * Update an existing order (only if pending)
+     */
     public function update(Request $request, $id)
     {
         $request->validate([
-            'customer_id' => 'nullable|exists:customers,id',
             'discount' => 'nullable|numeric|min:0',
+            'payment_method' => 'nullable|in:cash,card,mobile_money',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
@@ -103,58 +94,22 @@ class OrderController extends Controller
             ], 403);
         }
 
-        return DB::transaction(function () use ($request, $order) {
+        $order = $this->posService->updateOrder($order, $request->all());
 
-            $newItems = $request->items;
-            $discount = $request->discount ?? 0;
-
-            // 1️⃣ Restore old stock
-            foreach ($order->items as $item) {
-                $item->product->increment('stock', $item->quantity);
-            }
-
-            // 2️⃣ Delete old items
-            $order->items()->delete();
-
-            $total = 0;
-
-            // 3️⃣ Create new items
-            foreach ($newItems as $itemData) {
-                $product = Product::findOrFail($itemData['product_id']);
-
-                if ($product->stock < $itemData['quantity']) {
-                    throw new \Symfony\Component\HttpKernel\Exception\HttpException(
-                        422,
-                        "Not enough stock for {$product->name}"
-                    );
-                }
-
-                $subtotal = $product->price * $itemData['quantity'];
-
-                $order->items()->create([
-                    'product_id' => $product->id,
-                    'quantity' => $itemData['quantity'],
-                    'price' => $product->price,
-                    'subtotal' => $subtotal,
-                ]);
-
-                // Decrement stock
-                $product->decrement('stock', $itemData['quantity']);
-                $total += $subtotal;
-            }
-
-            // 4️⃣ Recalculate totals
-            $order->total = $total;
-            $order->grand_total = max(0, $total - $discount);
-            $order->discount = $discount;
-            $order->customer_id = $request->customer_id ?? $order->customer_id;
-            $order->save();
-
-            return $order->load('items.product', 'customer', 'user');
-        });
+        return response()->json($order);
     }
 
+    /**
+     * Cancel an order (pending or paid)
+     */
+    public function cancel($id)
+    {
+        $order = Order::with('items.product')->findOrFail($id);
 
+        $order = $this->posService->cancelOrder($order);
 
-    // Optional: update / delete methods
+        return response()->json($order);
+    }
 }
+
+
