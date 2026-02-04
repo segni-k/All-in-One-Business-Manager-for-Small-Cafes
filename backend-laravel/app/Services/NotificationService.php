@@ -5,56 +5,76 @@ namespace App\Services;
 use App\Models\Notification;
 use App\Models\Product;
 use App\Models\Order;
-use App\Models\Customer;
+use Illuminate\Support\Collection;
 
 class NotificationService
 {
-    // Log a notification (can later integrate SMS/email)
-    public function send(string $type, string $message, ?Customer $customer = null): Notification
+    /**
+     * Log a notification in the database.
+     * Can later integrate with push notifications, email, or SMS.
+     *
+     * @param string $type
+     * @param string $message
+     * @param array $meta Optional extra data (e.g., order_id, product_id)
+     * @return Notification
+     */
+    public function send(string $type, string $message, array $meta = []): Notification
     {
         $notification = Notification::create([
             'type' => $type,
             'message' => $message,
-            'customer_id' => $customer?->id,
-            'sent' => false, // set true after real email/SMS
+            'meta' => $meta,
+            'sent' => false, // will be set true after push/email/SMS
         ]);
 
-        // TODO: Integrate SMS / Email here
-        // Example: Mail::to($customer->email)->send(new NotificationMail($message));
+        // TODO: Integrate push notifications here
+        // Example:
+        // app(PushNotificationService::class)->send($type, $message, $meta);
 
         return $notification;
     }
 
-    // Check low stock and send alerts
-    public function checkLowStock(int $threshold = 5)
+    /**
+     * Check low stock and create notifications.
+     *
+     * @param int $threshold
+     * @return Collection
+     */
+    public function checkLowStock(int $threshold = 5): Collection
     {
         $products = Product::where('stock', '<=', $threshold)->get();
 
-        foreach ($products as $product) {
-            $this->send('low_stock', "Product {$product->name} is low on stock ({$product->stock} units left).");
-        }
+        return $products->map(fn($product) => $this->send(
+            'low_stock',
+            "Product {$product->name} is low on stock ({$product->stock} units left).",
+            ['product_id' => $product->id, 'stock' => $product->stock]
+        ));
     }
 
-    // Notify customer for unpaid orders
-    public function notifyUnpaidOrders()
+    /**
+     * Notify about unpaid orders.
+     *
+     * @return Collection
+     */
+    public function notifyUnpaidOrders(): Collection
     {
         $orders = Order::where('payment_status', 'pending')->get();
 
-        foreach ($orders as $order) {
-            $customer = $order->customer;
-            if ($customer) {
-                $this->send(
-                    'unpaid_order',
-                    "Dear {$customer->name}, your order #{$order->id} is pending payment.",
-                    $customer
-                );
-            }
-        }
+        return $orders->map(fn($order) => $this->send(
+            'unpaid_order',
+            "Order #{$order->id} is pending payment.",
+            ['order_id' => $order->id]
+        ));
     }
 
-    // VIP customer notifications
-    public function notifyVipCustomer(Customer $customer, string $message)
+    /**
+     * Get the latest notifications.
+     *
+     * @param int $limit
+     * @return Collection
+     */
+    public function latest(int $limit = 50): Collection
     {
-        $this->send('vip', $message, $customer);
+        return Notification::latest()->take($limit)->get();
     }
 }
