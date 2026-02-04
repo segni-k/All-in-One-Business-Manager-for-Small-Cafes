@@ -8,10 +8,20 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class InventoryService
 {
-    protected int $lowStockThreshold = 5; // configurable default threshold
+    /**
+     * Default low-stock threshold
+     */
+    protected int $lowStockThreshold = 5;
 
-    // Add stock
-    public function addStock(Product $product, int $quantity, ?string $notes = null)
+    /**
+     * Add stock to a product
+     *
+     * @param Product $product
+     * @param int $quantity
+     * @param string|null $notes
+     * @return Product
+     */
+    public function addStock(Product $product, int $quantity, ?string $notes = null): Product
     {
         $product->increment('stock', $quantity);
 
@@ -19,14 +29,24 @@ class InventoryService
             'product_id' => $product->id,
             'type' => 'in',
             'quantity' => $quantity,
-            'notes' => $notes
+            'notes' => $notes,
         ]);
 
         return $product;
     }
 
-    // Remove stock
-    public function removeStock(Product $product, int $quantity, $order_id = null, ?string $notes = null)
+    /**
+     * Remove stock from a product
+     *
+     * @param Product $product
+     * @param int $quantity
+     * @param int|null $orderId
+     * @param string|null $notes
+     * @return Product
+     *
+     * @throws HttpException
+     */
+    public function removeStock(Product $product, int $quantity, ?int $orderId = null, ?string $notes = null): Product
     {
         if ($product->stock < $quantity) {
             throw new HttpException(422, "Not enough stock for {$product->name}");
@@ -38,34 +58,42 @@ class InventoryService
             'product_id' => $product->id,
             'type' => 'out',
             'quantity' => $quantity,
-            'order_id' => $order_id,
-            'notes' => $notes
+            'order_id' => $orderId,
+            'notes' => $notes,
         ]);
 
-        // Check for low stock and send notification
+        // Send low stock notification if below threshold
         if ($product->stock <= $this->lowStockThreshold) {
-            app(\App\Services\NotificationService::class)->send(
-                'low_stock',
-                "Product {$product->name} is low on stock ({$product->stock})."
-            );
+            if (app()->bound('NotificationService')) {
+                app(\App\Services\NotificationService::class)->send(
+                    'low_stock',
+                    "Product {$product->name} is low on stock ({$product->stock})"
+                );
+            }
         }
 
         return $product;
     }
 
-    // Get current stock
+    /**
+     * Get current stock of a product
+     */
     public function getStock(Product $product): int
     {
         return $product->stock;
     }
 
-    // Optional: get all products below threshold
-    public function getLowStockProducts(): \Illuminate\Support\Collection
+    /**
+     * Get all products below the threshold
+     */
+    public function getLowStockProducts()
     {
         return Product::where('stock', '<=', $this->lowStockThreshold)->get();
     }
 
-    // Optionally, allow dynamic threshold
+    /**
+     * Set a dynamic low-stock threshold
+     */
     public function setLowStockThreshold(int $threshold): void
     {
         $this->lowStockThreshold = $threshold;
