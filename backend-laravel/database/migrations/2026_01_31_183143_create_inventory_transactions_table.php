@@ -6,25 +6,38 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('inventory_transactions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_id')->constrained()->onDelete('cascade');
-            $table->enum('type', ['in', 'out']); // in = stock added, out = stock removed
+
+            // The product
+            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+
+            // Who did it
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+
+            // Type of movement
+            $table->enum('type', ['sale', 'restock', 'adjustment'])->comment('Sale = removed by POS, restock = added to stock, adjustment = manual correction');
+
+            // Quantity
             $table->integer('quantity');
-            $table->foreignId('order_id')->nullable()->constrained()->onDelete('cascade'); // linked to POS order if any
+
+            // Reference to order, purchase, etc
+            $table->string('reference_type')->nullable()->comment('Model name, e.g., Order, Purchase');
+            $table->unsignedBigInteger('reference_id')->nullable()->comment('ID of the reference model');
+
+            // Optional notes
             $table->text('notes')->nullable();
+
             $table->timestamps();
+
+            // Indexes for performance
+            $table->index(['product_id', 'created_at']);
+            $table->index(['reference_type', 'reference_id']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('inventory_transactions');

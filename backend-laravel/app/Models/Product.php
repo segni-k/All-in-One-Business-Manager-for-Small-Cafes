@@ -1,21 +1,56 @@
 <?php
+
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
 {
-    use HasFactory;
+    use SoftDeletes;
 
-    protected $fillable = ['name','category_id','price','stock'];
+    protected $fillable = [
+        'name',
+        'sku',
+        'category_id',
+        'price',
+        'cost',
+        'stock',
+        'is_active',
+    ];
 
-    public function category(){
+    protected $casts = [
+        'price' => 'decimal:2',
+        'cost' => 'decimal:2',
+        'is_active' => 'boolean',
+    ];
+
+    /* ======================
+     | Relationships
+     ====================== */
+
+    public function category()
+    {
         return $this->belongsTo(Category::class);
     }
 
-    public function transactions(){
-        return $this->hasMany(InventoryTransaction::class);
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
+    /* ======================
+     | Helpers
+     ====================== */
+
+    public function isOutOfStock(): bool
+    {
+        return $this->stock <= 0;
+    }
+
+    public function profitPerUnit(): float
+    {
+        return (float) ($this->price - $this->cost);
     }
 }
 
