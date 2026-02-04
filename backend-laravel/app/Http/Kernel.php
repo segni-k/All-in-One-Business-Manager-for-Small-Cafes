@@ -37,9 +37,8 @@ class Kernel extends HttpKernel
      * The application's route middleware.
      */
     protected $routeMiddleware = [
-        //
+ 
     ];
-
 
     protected function schedule(Schedule $schedule)
     {
