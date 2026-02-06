@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -18,14 +19,14 @@ class POSService
     }
 
     /**
-     * Create a new order
+     * Create a new POS order
      */
-    public function createOrder(array $data): Order
+    public function createOrder(array $data, User $user): Order
     {
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $user) {
 
             $order = Order::create([
-                'user_id' => $data['user_id'],
+                'user_id' => $user->id,
                 'discount' => $data['discount'] ?? 0,
                 'status' => 'pending',
                 'payment_status' => 'pending',
@@ -38,12 +39,14 @@ class POSService
                 $product = Product::findOrFail($itemData['product_id']);
 
                 if ($product->stock < $itemData['quantity']) {
-                    throw new HttpException(422, "Not enough stock for {$product->name}");
+                    throw new HttpException(
+                        422,
+                        "Not enough stock for {$product->name}"
+                    );
                 }
 
                 $subtotal = $product->price * $itemData['quantity'];
 
-                // Create order item
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $product->id,
@@ -52,46 +55,49 @@ class POSService
                     'subtotal' => $subtotal,
                 ]);
 
-                // Deduct stock and log inventory transaction
+                // Deduct stock + log inventory transaction
                 $this->inventoryService->removeStock(
-                    $product,
-                    $itemData['quantity'],
-                    $order->id,
-                    'Sold via POS'
+                    product: $product,
+                    quantity: $itemData['quantity'],
+                    user: $user,
+                    orderId: $order->id,
+                    notes: 'Sold via POS'
                 );
 
                 $total += $subtotal;
             }
 
-            $order->total = $total;
-            $order->grand_total = max(0, $total - ($data['discount'] ?? 0));
-            $order->save();
+            $order->update([
+                'total' => $total,
+                'grand_total' => max(0, $total - ($data['discount'] ?? 0)),
+            ]);
 
             return $order->load('items.product', 'user');
         });
     }
 
     /**
-     * Update existing order (only if not paid)
+     * Update an existing order (only if not paid)
      */
-    public function updateOrder(Order $order, array $data): Order
+    public function updateOrder(Order $order, array $data, User $user): Order
     {
         if ($order->payment_status !== 'pending') {
             throw new HttpException(403, 'Cannot edit a paid order');
         }
 
-        return DB::transaction(function () use ($order, $data) {
+        return DB::transaction(function () use ($order, $data, $user) {
 
             // Restore stock from old items
             foreach ($order->items as $item) {
                 $this->inventoryService->addStock(
-                    $item->product,
-                    $item->quantity,
-                    "Restocked from edited order #{$order->id}"
+                    product: $item->product,
+                    quantity: $item->quantity,
+                    user: $user,
+                    notes: "Restocked from edited order #{$order->id}"
                 );
             }
 
-            // Remove old items
+            // Remove old order items
             $order->items()->delete();
 
             $total = 0;
@@ -100,7 +106,10 @@ class POSService
                 $product = Product::findOrFail($itemData['product_id']);
 
                 if ($product->stock < $itemData['quantity']) {
-                    throw new HttpException(422, "Not enough stock for {$product->name}");
+                    throw new HttpException(
+                        422,
+                        "Not enough stock for {$product->name}"
+                    );
                 }
 
                 $subtotal = $product->price * $itemData['quantity'];
@@ -114,20 +123,22 @@ class POSService
                 ]);
 
                 $this->inventoryService->removeStock(
-                    $product,
-                    $itemData['quantity'],
-                    $order->id,
-                    'Sold via POS (order updated)'
+                    product: $product,
+                    quantity: $itemData['quantity'],
+                    user: $user,
+                    orderId: $order->id,
+                    notes: 'Sold via POS (order updated)'
                 );
 
                 $total += $subtotal;
             }
 
-            $order->total = $total;
-            $order->grand_total = max(0, $total - ($data['discount'] ?? 0));
-            $order->discount = $data['discount'] ?? 0;
-            $order->payment_method = $data['payment_method'];
-            $order->save();
+            $order->update([
+                'total' => $total,
+                'grand_total' => max(0, $total - ($data['discount'] ?? 0)),
+                'discount' => $data['discount'] ?? 0,
+                'payment_method' => $data['payment_method'],
+            ]);
 
             return $order->load('items.product', 'user');
         });
@@ -136,7 +147,7 @@ class POSService
     /**
      * Cancel an order
      */
-    public function cancelOrder(Order $order): Order
+    public function cancelOrder(Order $order, User $user): Order
     {
         if ($order->status === 'cancelled') {
             throw new HttpException(400, 'Order is already cancelled');
@@ -146,22 +157,24 @@ class POSService
             throw new HttpException(403, 'This order cannot be cancelled');
         }
 
-        return DB::transaction(function () use ($order) {
+        return DB::transaction(function () use ($order, $user) {
 
             // Restore stock
             foreach ($order->items as $item) {
                 $this->inventoryService->addStock(
-                    $item->product,
-                    $item->quantity,
-                    "Restocked from cancelled order #{$order->id}"
+                    product: $item->product,
+                    quantity: $item->quantity,
+                    user: $user,
+                    notes: "Restocked from cancelled order #{$order->id}"
                 );
             }
 
-            // Update status and payment
             $order->status = 'cancelled';
+
             if ($order->payment_status === 'paid') {
                 $order->payment_status = 'refunded';
             }
+
             $order->save();
 
             return $order->load('items.product', 'user');
