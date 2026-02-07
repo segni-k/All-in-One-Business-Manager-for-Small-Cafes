@@ -7,7 +7,7 @@ use App\Http\Controllers\POS\OrderController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\POS\ProductController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -27,6 +27,24 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // -----------------------------
+    // Products (POS + Inventory)
+    // -----------------------------
+
+    // POS access (cashier, manager, admin) - read-only
+    Route::middleware('permission:use_pos')->prefix('products')->group(function () {
+        Route::get('/', [ProductController::class, 'index']);
+        Route::get('/{product}', [ProductController::class, 'show']);
+    });
+
+    // Inventory management (manager, admin) - write access
+    Route::middleware('permission:manage_inventory')->prefix('products')->group(function () {
+        Route::post('/', [ProductController::class, 'store']);
+        Route::put('/{product}', [ProductController::class, 'update']);
+        Route::delete('/{product}', [ProductController::class, 'destroy']);
+        Route::post('/{id}/restore', [ProductController::class, 'restore']);
+    });
+
+    // -----------------------------
     // POS Orders (staff with POS permission)
     // -----------------------------
     Route::middleware('permission:use_pos')->prefix('orders')->group(function () {
@@ -38,31 +56,20 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // -----------------------------
-    // Reports & dashboard (permission-based)
+    // Reports (admin + manager)
     // -----------------------------
     Route::middleware('permission:view_reports')->group(function () {
         Route::get('/reports/daily', [ReportController::class, 'daily']);
         Route::get('/reports/monthly', [ReportController::class, 'monthly']);
     });
 
-    Route::middleware('permission:view_dashboard')->group(function () {
+    // -----------------------------
+    // Dashboard & notifications (use existing POS permission)
+    // -----------------------------
+    Route::middleware('permission:use_pos')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index']);
-    });
-
-    Route::middleware('permission:view_notifications')->group(function () {
         Route::get('/notifications', [NotificationController::class, 'index']);
     });
 
-    // -----------------------------
-    // Customer management (permission-based)
-    // -----------------------------
-    Route::middleware('permission:manage_customers')->group(function () {
-        Route::get('/customers', [CustomerController::class, 'index']);
-        Route::post('/customers', [CustomerController::class, 'store']);
-        Route::get('/customers/{customer}', [CustomerController::class, 'show']);
-        Route::put('/customers/{customer}', [CustomerController::class, 'update']);
-        Route::delete('/customers/{customer}', [CustomerController::class, 'destroy']);
-        Route::get('/customers/{customer}/orders', [CustomerController::class, 'orders']);
-    });
 });
 
