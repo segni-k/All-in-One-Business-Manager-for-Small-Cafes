@@ -6,8 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\POSService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class OrderController extends Controller
 {
@@ -16,7 +14,6 @@ class OrderController extends Controller
     public function __construct(POSService $posService)
     {
         $this->posService = $posService;
-
     }
 
     /**
@@ -26,20 +23,21 @@ class OrderController extends Controller
     {
         $query = Order::with('items.product', 'user')->latest();
 
-        // Optional filters
-        if ($request->has('status')) {
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
-        if ($request->has('payment_status')) {
+
+        if ($request->filled('payment_status')) {
             $query->where('payment_status', $request->payment_status);
         }
-        if ($request->has('payment_method')) {
+
+        if ($request->filled('payment_method')) {
             $query->where('payment_method', $request->payment_method);
         }
 
-        $orders = $query->paginate(25); // paginated for production
-
-        return response()->json($orders);
+        return response()->json(
+            $query->paginate(25)
+        );
     }
 
     /**
@@ -47,7 +45,7 @@ class OrderController extends Controller
      */
     public function show($id)
     {
-        $order = Order::with( 'items.product', 'user')->findOrFail($id);
+        $order = Order::with('items.product', 'user')->findOrFail($id);
 
         return response()->json($order);
     }
@@ -57,18 +55,18 @@ class OrderController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'discount' => 'nullable|numeric|min:0',
-            'payment_method' => 'nullable|in:cash,card,mobile_money',
+            'payment_method' => 'required|in:cash,card,mobile_money',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
         ]);
 
-        $data = $request->all();
-        $data['user_id'] = $request->user()->id;
-
-        $order = $this->posService->createOrder($data);
+        $order = $this->posService->createOrder(
+            $validated,
+            $request->user() // ✅ FIX
+        );
 
         return response()->json($order, 201);
     }
@@ -78,9 +76,9 @@ class OrderController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $request->validate([
+        $validated = $request->validate([
             'discount' => 'nullable|numeric|min:0',
-            'payment_method' => 'nullable|in:cash,card,mobile_money',
+            'payment_method' => 'required|in:cash,card,mobile_money',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
@@ -88,27 +86,28 @@ class OrderController extends Controller
 
         $order = Order::with('items.product')->findOrFail($id);
 
-        if ($order->payment_status !== 'pending') {
-            return response()->json([
-                'message' => 'Cannot edit a paid order'
-            ], 403);
-        }
+        $updatedOrder = $this->posService->updateOrder(
+            $order,
+            $validated,
+            $request->user()
+        );
 
-        $order = $this->posService->updateOrder($order, $request->all());
-
-        return response()->json($order);
+        return response()->json($updatedOrder);
     }
 
     /**
-     * Cancel an order (pending or paid)
+     * Cancel an order
      */
-    public function cancel($id)
+    public function cancel(Request $request, $id)
     {
         $order = Order::with('items.product')->findOrFail($id);
 
-        $order = $this->posService->cancelOrder($order);
+        $cancelledOrder = $this->posService->cancelOrder(
+            $order,
+            $request->user()
+        );
 
-        return response()->json($order);
+        return response()->json($cancelledOrder);
     }
 }
 
