@@ -17,50 +17,51 @@ class DashboardService
     }
 
     /**
-     * Get dashboard data for POS staff
-     *
-     * @return array
+     * Get dashboard data for POS staff.
      */
     public function getDashboardData(): array
     {
         $today = Carbon::today()->toDateString();
 
-        // 1️⃣ Today’s Orders
         $todayOrders = Order::with('items.product')
             ->whereDate('created_at', $today)
             ->where('status', '!=', 'cancelled')
             ->get();
 
-        $totalSales = $todayOrders->sum('grand_total');
-        $ordersCount = $todayOrders->count();
-
-        // 2️⃣ Pending Orders
-        $pendingOrders = Order::with('items.product')
+        $pendingOrders = Order::with('items.product', 'user')
             ->where('status', 'pending')
             ->latest()
             ->get();
 
-        $pendingCount = $pendingOrders->count();
-
-        // 3️⃣ Low Stock Products
         $lowStockProducts = Product::where('stock', '<=', $this->lowStockThreshold)->get();
 
-        // 4️⃣ Daily Profit/Loss
-        $profitLoss = $this->reportService->dailyProfitLoss($today);
+        $dailyProfitLoss = $this->reportService->dailyProfitLoss($today);
+        $monthlyProfitLoss = $this->reportService->monthlyProfitLoss();
+        $yearlyProfitLoss = $this->reportService->yearlyTrend(1)[0] ?? [
+            'total_sales' => 0,
+            'total_cost' => 0,
+            'profit' => 0,
+            'order_count' => 0,
+        ];
+        $dailyTrends = $this->reportService->dailyTrend(14);
 
-        // 5️⃣ Recent Orders
-        $recentOrders = Order::with('items.product')
+        $recentOrders = Order::with('items.product', 'user')
             ->latest()
             ->take(5)
             ->get();
 
         return [
-            'today_sales' => $totalSales,
-            'today_orders_count' => $ordersCount,
-            'pending_orders_count' => $pendingCount,
-            'pending_orders' => $pendingOrders,
+            'todays_sales' => (float) $todayOrders->sum('grand_total'),
+            'today_orders_count' => (int) $todayOrders->count(),
+            'pending_orders' => (int) $pendingOrders->count(),
+            'pending_orders_count' => (int) $pendingOrders->count(),
+            'pending_orders_list' => $pendingOrders,
             'low_stock_products' => $lowStockProducts,
-            'daily_profit_loss' => $profitLoss,
+            'daily_profit_loss' => $dailyProfitLoss,
+            'monthly_profit_loss' => $monthlyProfitLoss,
+            'yearly_profit_loss' => $yearlyProfitLoss,
+            'sales_profit_trends' => $dailyTrends,
+            'daily_trends' => $dailyTrends,
             'recent_orders' => $recentOrders,
         ];
     }
