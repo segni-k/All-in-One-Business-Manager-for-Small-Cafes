@@ -95,9 +95,11 @@ function formatCurrency(amount: number) {
 
 function statusBadgeVariant(status: OrderStatus) {
   switch (status) {
+    case "paid":
     case "completed":
       return "default" as const;
     case "cancelled":
+    case "refunded":
       return "destructive" as const;
     default:
       return "secondary" as const;
@@ -105,7 +107,7 @@ function statusBadgeVariant(status: OrderStatus) {
 }
 
 function statusBadgeClass(status: OrderStatus) {
-  if (status === "completed") return "bg-success text-success-foreground";
+  if (status === "paid" || status === "completed") return "bg-success text-success-foreground";
   return "";
 }
 
@@ -128,25 +130,24 @@ function paymentStatusBadgeClass(status: PaymentStatus) {
 function formatPaymentMethod(method: string) {
   const map: Record<string, string> = {
     cash: "Cash",
+    card: "Card",
+    mobile_money: "Mobile Money",
     credit_card: "Credit Card",
     debit_card: "Debit Card",
     e_wallet: "E-Wallet",
-    other: "Other",
   };
   return map[method] ?? method;
 }
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "cash", label: "Cash" },
-  { value: "credit_card", label: "Credit Card" },
-  { value: "debit_card", label: "Debit Card" },
-  { value: "e_wallet", label: "E-Wallet" },
-  { value: "other", label: "Other" },
+  { value: "card", label: "Card" },
+  { value: "mobile_money", label: "Mobile Money" },
 ];
 
 const ORDER_STATUSES: { value: OrderStatus; label: string }[] = [
   { value: "pending", label: "Pending" },
-  { value: "completed", label: "Completed" },
+  { value: "paid", label: "Completed" },
 ];
 
 // ---- Order Details Dialog ----
@@ -176,7 +177,7 @@ function OrderDetailsDialog({
               variant={statusBadgeVariant(order.status)}
               className={statusBadgeClass(order.status)}
             >
-              {order.status}
+              {order.status === "paid" ? "completed" : order.status}
             </Badge>
             <Badge
               variant={paymentStatusBadgeVariant(order.payment_status)}
@@ -214,7 +215,7 @@ function OrderDetailsDialog({
           {/* User */}
           {order.user && (
             <div>
-              <p className="text-xs text-muted-foreground">Customer</p>
+              <p className="text-xs text-muted-foreground">Staff</p>
               <p className="text-sm font-medium">
                 {order.user.name} ({order.user.email})
               </p>
@@ -289,7 +290,6 @@ function OrderFormDialog({
   const [discount, setDiscount] = useState("0");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [orderStatus, setOrderStatus] = useState<OrderStatus>("pending");
-  const [userId, setUserId] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [productSearch, setProductSearch] = useState("");
@@ -313,21 +313,21 @@ function OrderFormDialog({
       );
       setDiscount(String(editingOrder.discount ?? 0));
       setPaymentMethod(editingOrder.payment_method ?? "cash");
-      setOrderStatus(editingOrder.status === "cancelled" ? "pending" : editingOrder.status);
-      setUserId(String(editingOrder.user_id ?? ""));
+      setOrderStatus(
+        editingOrder.status === "cancelled" ? "pending" : editingOrder.status
+      );
     } else {
       setItems([]);
       setDiscount("0");
       setPaymentMethod("cash");
       setOrderStatus("pending");
-      setUserId("");
     }
     setFormError("");
     setProductSearch("");
   }, [editingOrder]);
 
   const availableProducts = (productsData?.data ?? []).filter(
-    (p) => (p.is_active || p.status === "active") && p.stock > 0
+    (p) => p.is_active && p.stock > 0
   );
 
   const filteredProducts = productSearch
@@ -404,7 +404,6 @@ function OrderFormDialog({
         payment_method: paymentMethod,
         status: orderStatus,
       };
-      if (userId) payload.user_id = Number(userId);
 
       if (isEditing) {
         await ordersApi.update(editingOrder.id, payload);
@@ -446,19 +445,8 @@ function OrderFormDialog({
             </div>
           )}
 
-          {/* Top row: User ID, Payment Method, Status */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="order-user">User ID</Label>
-              <Input
-                id="order-user"
-                type="number"
-                placeholder="Customer ID"
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                min={1}
-              />
-            </div>
+          {/* Top row: Payment Method, Status */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label>Payment Method</Label>
               <Select
@@ -717,6 +705,7 @@ export default function OrdersPage() {
   const [editing, setEditing] = useState<Order | null>(null);
   const [viewing, setViewing] = useState<Order | null>(null);
   const [cancelling, setCancelling] = useState<Order | null>(null);
+  const [completingId, setCompletingId] = useState<number | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
 
   if (!hasPermission("use_pos")) {
@@ -747,6 +736,21 @@ export default function OrdersPage() {
     } finally {
       setCancelLoading(false);
       setCancelling(null);
+    }
+  }
+
+  async function handleComplete(order: Order) {
+    setCompletingId(order.id);
+    try {
+      await ordersApi.complete(order.id);
+      toast.success(`Order #${order.id} marked as completed.`);
+      mutate();
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to complete order."
+      );
+    } finally {
+      setCompletingId(null);
     }
   }
 
@@ -812,7 +816,7 @@ export default function OrdersPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Order ID</TableHead>
-                    <TableHead>User ID</TableHead>
+                    <TableHead>Staff</TableHead>
                     <TableHead className="text-right">Subtotal</TableHead>
                     <TableHead className="text-right">Discount</TableHead>
                     <TableHead className="text-right">Grand Total</TableHead>
@@ -830,7 +834,7 @@ export default function OrdersPage() {
                         #{order.id}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {order.user_id ?? "-"}
+                        {order.user?.name ?? `#${order.user_id ?? "-"}`}
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">
                         {formatCurrency(order.subtotal ?? 0)}
@@ -860,7 +864,7 @@ export default function OrdersPage() {
                           variant={statusBadgeVariant(order.status)}
                           className={statusBadgeClass(order.status)}
                         >
-                          {order.status}
+                          {order.status === "paid" ? "Completed" : order.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm">
@@ -891,9 +895,20 @@ export default function OrdersPage() {
                               <Eye className="mr-2 h-4 w-4" />
                               View
                             </DropdownMenuItem>
-                            {order.payment_status === "pending" &&
-                              order.status !== "cancelled" && (
+                            {order.status === "pending" &&
+                              order.payment_status === "pending" && (
                                 <>
+                                  <DropdownMenuItem
+                                    onClick={() => handleComplete(order)}
+                                    disabled={completingId === order.id}
+                                  >
+                                    {completingId === order.id ? (
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <ShoppingCart className="mr-2 h-4 w-4" />
+                                    )}
+                                    Mark Completed
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() => {
                                       setEditing(order);
