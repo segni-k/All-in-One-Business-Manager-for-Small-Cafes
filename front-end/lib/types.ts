@@ -23,6 +23,7 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  avatar_url?: string | null;
   email_verified_at?: string | null;
   role_id: number;
   is_active: boolean;
@@ -54,6 +55,7 @@ export interface StaffPayload {
   password?: string;
   role_id?: number;
   status?: StaffStatus;
+  is_active?: boolean;
   permissions?: Permission[];
 }
 
@@ -69,6 +71,7 @@ export interface Product {
   id: number;
   name: string;
   sku: string;
+  image_url?: string | null;
   price: number;
   cost: number;
   stock: number;
@@ -84,6 +87,7 @@ export interface Product {
 export interface ProductPayload {
   name: string;
   sku: string;
+  image_url?: string | null;
   description?: string;
 
   // ✅ FIX: allow undefined (matches your form)
@@ -98,10 +102,12 @@ export interface ProductPayload {
 }
 
 // ---- Orders ----
-export type OrderStatus = "pending" | "completed" | "cancelled";
+export type OrderStatus = "pending" | "paid" | "cancelled" | "refunded" | "completed";
 export type PaymentStatus = "pending" | "paid" | "refunded";
 export type PaymentMethod =
   | "cash"
+  | "card"
+  | "mobile_money"
   | "credit_card"
   | "debit_card"
   | "e_wallet"
@@ -118,7 +124,7 @@ export interface OrderItem {
 
 export interface Order {
   id: number;
-  order_number: string;
+  order_number?: string;
   user_id: number;
   user?: User;
   subtotal: number;
@@ -159,6 +165,24 @@ export interface DailyReport {
 
 export interface MonthlyReport {
   month: string;
+  year?: number;
+  month_number?: number;
+  total_sales: number;
+  total_cost: number;
+  profit: number;
+  order_count: number;
+}
+
+export interface YearlyReport {
+  year: number;
+  total_sales: number;
+  total_cost: number;
+  profit: number;
+  order_count: number;
+}
+
+export interface OverallReport {
+  scope?: string;
   total_sales: number;
   total_cost: number;
   profit: number;
@@ -170,13 +194,42 @@ export interface DashboardData {
   todays_sales: number;
   today_orders_count: number;
   pending_orders: number;
+  pending_orders_count?: number;
   pending_orders_list?: Order[];
   low_stock_products: Product[];
   recent_orders: Order[];
+  sales_profit_trends?: Array<{
+    date: string;
+    total_sales: number;
+    total_cost: number;
+    profit: number;
+    order_count: number;
+  }>;
+  daily_trends?: Array<{
+    date: string;
+    total_sales: number;
+    total_cost: number;
+    profit: number;
+    order_count: number;
+  }>;
+  monthly_profit_loss?: {
+    total_sales: number;
+    total_cost: number;
+    profit: number;
+    order_count: number;
+  };
+  yearly_profit_loss?: {
+    total_sales: number;
+    total_cost: number;
+    profit: number;
+    order_count: number;
+    year?: number;
+  };
   daily_profit_loss: {
     total_sales: number;
     total_cost: number;
     profit: number;
+    order_count?: number;
   };
 }
 
@@ -190,6 +243,11 @@ export interface AppNotification {
   created_at: string;
 }
 
+export interface NotificationsResponse {
+  data: AppNotification[];
+  unseen_count: number;
+}
+
 // ---- Pagination ----
 export interface PaginatedResponse<T> {
   data: T[];
@@ -198,4 +256,3 @@ export interface PaginatedResponse<T> {
   per_page: number;
   total: number;
 }
-

@@ -9,8 +9,10 @@ import {
   OrderPayload,
   DailyReport,
   MonthlyReport,
+  YearlyReport,
+  OverallReport,
   DashboardData,
-  AppNotification,
+  NotificationsResponse,
   PaginatedResponse,
 } from "./types";
 
@@ -81,9 +83,25 @@ export const auth = {
   me: () => request<{ user: User }>("/me"),
 };
 
+// ---- Profile ----
+export const profile = {
+  update: (data: {
+    name?: string;
+    email?: string;
+    avatar_url?: string | null;
+    current_password?: string;
+    password?: string;
+    password_confirmation?: string;
+  }) =>
+    request<{ user: User; message: string }>("/me", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+};
+
 // ---- Staff ----
 export const staff = {
-  list: () => request<{ data: StaffMember[] }>("/staff"),
+  list: () => request<StaffMember[] | { data: StaffMember[] }>("/staff"),
   create: (data: StaffPayload) =>
     request<{ data: StaffMember }>("/staff", {
       method: "POST",
@@ -104,7 +122,7 @@ export const products = {
 
     if (params?.page !== undefined) query.page = String(params.page);
     if (params?.search) query.search = params.search;
-    query.include_inactive = params?.include_inactive ? "1" : "0";
+    query.with_inactive = params?.include_inactive ? "1" : "0";
 
     const qs = new URLSearchParams(query).toString();
 
@@ -143,6 +161,11 @@ export const products = {
     request<{ data: Product }>(`/products/${id}/restore`, { method: "POST" }),
 
   categories: () => request<{ data: Category[] }>("/products/categories"),
+  createCategory: (data: { name: string }) =>
+    request<{ data: Category }>("/products/categories", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };
 
 // ---- Orders ----
@@ -159,29 +182,51 @@ export const orders = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  update: (id: number, data: Partial<OrderPayload>) =>
+    request<Order>(`/orders/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  cancel: (id: number) => request<Order>(`/orders/${id}/cancel`, { method: "POST" }),
+  complete: (id: number) => request<Order>(`/orders/${id}/complete`, { method: "POST" }),
 };
 
 // ---- Reports ----
 export const reports = {
-  daily: (params?: { date?: string }) => {
+  daily: (params?: { date?: string; days?: string }) => {
     const qs = new URLSearchParams(params as Record<string, string>).toString();
-    return request<{ data: DailyReport[] }>(`/reports/daily${qs ? `?${qs}` : ""}`);
+    return request<DailyReport | DailyReport[] | { data: DailyReport[] }>(
+      `/reports/daily${qs ? `?${qs}` : ""}`
+    );
   },
 
-  monthly: (params?: { month?: string }) => {
+  monthly: (params?: { month?: string; year?: string }) => {
     const qs = new URLSearchParams(params as Record<string, string>).toString();
-    return request<{ data: MonthlyReport[] }>(`/reports/monthly${qs ? `?${qs}` : ""}`);
+    return request<MonthlyReport | MonthlyReport[] | { data: MonthlyReport[] }>(
+      `/reports/monthly${qs ? `?${qs}` : ""}`
+    );
   },
+  yearly: (params?: { years?: string }) => {
+    const qs = new URLSearchParams(params as Record<string, string>).toString();
+    return request<YearlyReport[] | { data: YearlyReport[] }>(
+      `/reports/yearly${qs ? `?${qs}` : ""}`
+    );
+  },
+  overall: () => request<OverallReport | { data: OverallReport }>("/reports/overall"),
 };
 
 // ---- Dashboard ----
 export const dashboard = {
-  get: () => request<{ data: DashboardData }>("/dashboard"),
+  get: () => request<DashboardData | { data: DashboardData }>("/dashboard"),
 };
 
 // ---- Notifications ----
 export const notifications = {
-  list: () => request<{ data: AppNotification[] }>("/notifications"),
+  list: () => request<NotificationsResponse>("/notifications"),
+  markSeen: (id: number) =>
+    request<{ data: { id: number; read_at: string | null } }>(`/notifications/${id}/seen`, {
+      method: "POST",
+    }),
 };
 
 export { ApiError };
