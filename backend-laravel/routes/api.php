@@ -15,6 +15,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    Route::put('/me', [AuthController::class, 'updateProfile']);
 
     // -----------------------------
     // Staff management (admin-only)
@@ -29,15 +30,16 @@ Route::middleware('auth:sanctum')->group(function () {
     // -----------------------------
     // Products (POS + Inventory)
     // -----------------------------
-
     // POS access (cashier, manager, admin) - read-only
     Route::middleware('permission:use_pos')->prefix('products')->group(function () {
         Route::get('/', [ProductController::class, 'index']);
+        Route::get('/categories', [ProductController::class, 'categories']);
         Route::get('/{product}', [ProductController::class, 'show']);
     });
 
     // Inventory management (manager, admin) - write access
     Route::middleware('permission:manage_inventory')->prefix('products')->group(function () {
+        Route::post('/categories', [ProductController::class, 'storeCategory']);
         Route::post('/', [ProductController::class, 'store']);
         Route::put('/{product}', [ProductController::class, 'update']);
         Route::delete('/{product}', [ProductController::class, 'destroy']);
@@ -52,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}', [OrderController::class, 'show']);
         Route::post('/', [OrderController::class, 'store']);
         Route::put('/{id}', [OrderController::class, 'update']);
+        Route::post('/{id}/complete', [OrderController::class, 'complete']);
         Route::post('/{id}/cancel', [OrderController::class, 'cancel']);
     });
 
@@ -61,6 +64,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:view_reports')->group(function () {
         Route::get('/reports/daily', [ReportController::class, 'daily']);
         Route::get('/reports/monthly', [ReportController::class, 'monthly']);
+        Route::get('/reports/yearly', [ReportController::class, 'yearly']);
+        Route::get('/reports/overall', [ReportController::class, 'overall']);
     });
 
     // -----------------------------
@@ -69,6 +74,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:use_pos')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index']);
         Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::post('/notifications/{id}/seen', [NotificationController::class, 'markSeen']);
     });
 
 });

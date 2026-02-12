@@ -138,10 +138,33 @@ class POSService
                 'grand_total' => max(0, $total - ($data['discount'] ?? 0)),
                 'discount' => $data['discount'] ?? 0,
                 'payment_method' => $data['payment_method'],
+                'status' => $data['status'] ?? $order->status,
             ]);
 
             return $order->load('items.product', 'user');
         });
+    }
+
+    /**
+     * Complete an order and mark payment as paid.
+     */
+    public function completeOrder(Order $order, User $user): Order
+    {
+        if ($order->status === 'cancelled') {
+            throw new HttpException(403, 'Cancelled order cannot be completed');
+        }
+
+        if ($order->status === 'paid' && $order->payment_status === 'paid') {
+            return $order->load('items.product', 'user');
+        }
+
+        $order->update([
+            'status' => 'paid',
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+        ]);
+
+        return $order->fresh()->load('items.product', 'user');
     }
 
     /**
