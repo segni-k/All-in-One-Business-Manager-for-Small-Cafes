@@ -79,6 +79,7 @@ class OrderController extends Controller
         $validated = $request->validate([
             'discount' => 'nullable|numeric|min:0',
             'payment_method' => 'required|in:cash,card,mobile_money',
+            'status' => 'sometimes|in:pending,paid',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
@@ -96,6 +97,21 @@ class OrderController extends Controller
     }
 
     /**
+     * Complete an order.
+     */
+    public function complete(Request $request, $id)
+    {
+        $order = Order::with('items.product')->findOrFail($id);
+
+        $completedOrder = $this->posService->completeOrder(
+            $order,
+            $request->user()
+        );
+
+        return response()->json($completedOrder);
+    }
+
+    /**
      * Cancel an order
      */
     public function cancel(Request $request, $id)
@@ -110,5 +126,4 @@ class OrderController extends Controller
         return response()->json($cancelledOrder);
     }
 }
-
 

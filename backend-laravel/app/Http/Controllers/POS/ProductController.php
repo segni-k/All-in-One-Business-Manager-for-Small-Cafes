@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\POS;
 
 use App\Http\Controllers\Controller;
+use App\Models\Category;
 use App\Models\Product;
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
@@ -18,11 +19,11 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
+        $withInactive = $request->boolean('with_inactive');
+
         $products = Product::query()
-            ->when(
-                $request->boolean('with_inactive') !== true,
-                fn ($q) => $q->where('is_active', true)
-            )
+            ->when($withInactive, fn ($q) => $q->withTrashed())
+            ->when(!$withInactive, fn ($q) => $q->where('is_active', true))
             ->when(
                 $request->filled('search'),
                 fn ($q) =>
@@ -31,7 +32,7 @@ class ProductController extends Controller
             )
             ->with('category:id,name')
             ->latest()
-            ->paginate(20);
+            ->paginate(10);
 
         return response()->json($products);
     }
@@ -95,7 +96,38 @@ class ProductController extends Controller
 
         return response()->json([
             'message' => 'Product restored successfully',
-            'data' => $product
+            'data' => $product->fresh()->load('category'),
         ]);
+    }
+
+    /**
+     * List all categories for product forms.
+     */
+    public function categories()
+    {
+        $categories = Category::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return response()->json([
+            'data' => $categories,
+        ]);
+    }
+
+    /**
+     * Create a product category.
+     */
+    public function storeCategory(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:categories,name',
+        ]);
+
+        $category = Category::create($validated);
+
+        return response()->json([
+            'message' => 'Category created successfully',
+            'data' => $category,
+        ], 201);
     }
 }
