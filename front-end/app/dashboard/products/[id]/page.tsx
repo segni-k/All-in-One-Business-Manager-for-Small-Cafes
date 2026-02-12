@@ -143,11 +143,9 @@ export default function ProductProfilePage() {
 
   const pStatus = product.deleted_at
     ? "deleted"
-    : product.status
-      ? product.status
-      : product.is_active
-        ? "active"
-        : "inactive";
+    : product.is_active
+      ? "active"
+      : "inactive";
 
   const margin = product.price - product.cost;
   const marginPct =
@@ -196,13 +194,27 @@ export default function ProductProfilePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {product.image_url ? (
+              <img
+                src={product.image_url}
+                alt={product.name}
+                className="h-48 w-full rounded-md object-cover"
+              />
+            ) : (
+              <div className="flex h-48 w-full items-center justify-center rounded-md bg-muted">
+                <Package className="h-8 w-8 text-muted-foreground" />
+              </div>
+            )}
             <DetailRow label="Name">{product.name}</DetailRow>
             <DetailRow label="SKU">
               <span className="font-mono">{product.sku}</span>
             </DetailRow>
             <Separator />
             <DetailRow label="Category">
-              {product.category ?? "\u2014"}
+              {typeof product.category === "string"
+                ? product.category
+                : product.category?.name ?? "\u2014"}
             </DetailRow>
             <DetailRow label="Status">
               {pStatus === "deleted" ? (

@@ -73,6 +73,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCategories, useProducts } from "@/lib/hooks";
 import { products as productsApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { PRODUCT_AVATAR_OPTIONS } from "@/lib/avatar-options";
 import type { Product, ProductPayload, ProductStatus } from "@/lib/types";
 
 // ---- Helpers ----
@@ -114,6 +115,7 @@ function ProductFormDialog({
 
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
+  const [selectedAvatar, setSelectedAvatar] = useState("none");
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
   const [price, setPrice] = useState("");
   const [cost, setCost] = useState("");
@@ -125,6 +127,10 @@ function ProductFormDialog({
     if (editingProduct) {
       setName(editingProduct.name);
       setSku(editingProduct.sku);
+      const isPresetAvatar = PRODUCT_AVATAR_OPTIONS.some(
+        (avatar) => avatar.url === editingProduct.image_url
+      );
+      setSelectedAvatar(isPresetAvatar ? (editingProduct.image_url as string) : "none");
       setCategoryId(
         typeof editingProduct.category === "object"
           ? editingProduct.category?.id
@@ -137,6 +143,7 @@ function ProductFormDialog({
     } else {
       setName("");
       setSku("");
+      setSelectedAvatar("none");
       setCategoryId(undefined);
       setPrice("");
       setCost("");
@@ -193,6 +200,7 @@ function ProductFormDialog({
       const payload: ProductPayload = {
         name: name.trim(),
         sku: sku.trim(),
+        image_url: selectedAvatar === "none" ? null : selectedAvatar,
         category_id: categoryId,
         price: parseFloat(price),
         cost: parseFloat(cost),
@@ -261,6 +269,23 @@ function ProductFormDialog({
                 required
               />
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Product Avatar (Optional)</Label>
+            <Select value={selectedAvatar} onValueChange={setSelectedAvatar}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a product avatar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No avatar</SelectItem>
+                {PRODUCT_AVATAR_OPTIONS.map((avatar) => (
+                  <SelectItem key={avatar.id} value={avatar.url}>
+                    {avatar.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -451,6 +476,7 @@ export default function ProductsPage() {
   const [deleting, setDeleting] = useState<Product | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [restoringId, setRestoringId] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleSearch = useCallback(
     (e: React.FormEvent) => {
@@ -489,6 +515,19 @@ export default function ProductsPage() {
     }
   }
 
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await mutate();
+      router.refresh();
+      toast.success("Products refreshed.");
+    } catch {
+      toast.error("Failed to refresh products.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   const productsList = data?.data ?? [];
   const totalPages = data?.last_page ?? 1;
   const totalProducts = data?.total ?? 0;
@@ -506,15 +545,25 @@ export default function ProductsPage() {
           </p>
         </div>
         {canManage && (
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Product
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
+              {refreshing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-2 h-4 w-4" />
+              )}
+              Refresh
+            </Button>
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create Product
+            </Button>
+          </div>
         )}
       </div>
 
@@ -593,6 +642,7 @@ export default function ProductsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-16">Photo</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>SKU</TableHead>
                     <TableHead>Category</TableHead>
@@ -610,6 +660,22 @@ export default function ProductsPage() {
                         key={product.id}
                         className={pStatus === "deleted" ? "opacity-60" : undefined}
                       >
+                        <TableCell>
+                          {product.image_url ? (
+                            <>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={product.image_url}
+                                alt={product.name}
+                                className="h-10 w-10 rounded object-cover"
+                              />
+                            </>
+                          ) : (
+                            <div className="flex h-10 w-10 items-center justify-center rounded bg-muted">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium">{product.name}</TableCell>
                         <TableCell className="font-mono text-sm text-muted-foreground">
                           {product.sku}
