@@ -115,7 +115,7 @@ function StaffFormDialog({
       setRoleId(
         String(
           editingStaff.role_id ??
-            ROLES.find((r) => r.value === editingStaff.role)?.id ??
+            ROLES.find((r) => r.value === editingStaff.role?.name)?.id ??
             3
         )
       );
@@ -149,7 +149,7 @@ function StaffFormDialog({
         name: name.trim(),
         email: email.trim(),
         role_id: Number(roleId),
-        status,
+        is_active: status === "active",
       };
       if (password) payload.password = password;
 
@@ -352,14 +352,14 @@ export default function StaffPage() {
     }
   }
 
-  const staffList = data?.data ?? [];
+  const staffList = data ?? [];
 
   const filteredStaff = searchQuery
     ? staffList.filter(
         (m) =>
           m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           m.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          m.role.toLowerCase().includes(searchQuery.toLowerCase())
+          m.role?.name?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : staffList;
 
@@ -457,7 +457,7 @@ export default function StaffPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary">
-                          {getRoleLabel(member.role)}
+                          {getRoleLabel(member.role?.name ?? "")}
                         </Badge>
                       </TableCell>
                       <TableCell>
