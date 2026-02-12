@@ -5,6 +5,7 @@ import { Inter, Space_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const spaceMono = Space_Mono({
@@ -33,6 +34,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <div className="fixed right-4 top-4 z-50">
+            <ThemeToggle />
+          </div>
           {children}
           <Toaster position="top-right" richColors />
         </ThemeProvider>
