@@ -17,7 +17,6 @@ import {
   MoreHorizontal,
   Eye,
 } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,14 +70,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-
-import { useProducts, useCategories } from "@/lib/hooks";
+import { useCategories, useProducts } from "@/lib/hooks";
 import { products as productsApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import type { Product, ProductPayload } from "@/lib/types";
+import type { Product, ProductPayload, ProductStatus } from "@/lib/types";
 
-/* -------------------------------- Helpers -------------------------------- */
-
+// ---- Helpers ----
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -86,13 +83,12 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-function getProductStatus(product: Product) {
+function getProductStatus(product: Product): string {
   if (product.deleted_at) return "deleted";
   return product.is_active ? "active" : "inactive";
 }
 
-/* --------------------------- Product Form Dialog -------------------------- */
-
+// ---- Product Form Dialog ----
 function ProductFormDialog({
   open,
   onClose,
@@ -105,46 +101,90 @@ function ProductFormDialog({
   onSuccess: () => void;
 }) {
   const isEditing = !!editingProduct;
-
-  const { data: categories } = useCategories();
-
+  const {
+    data: categories,
+    isLoading: categoriesLoading,
+    mutate: mutateCategories,
+  } = useCategories();
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
 
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
-  const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
   const [price, setPrice] = useState("");
   const [cost, setCost] = useState("");
   const [stock, setStock] = useState("");
-  const [isActive, setIsActive] = useState(true);
+  const [status, setStatus] = useState<ProductStatus>("active");
 
+  // Populate form when editing
   useEffect(() => {
     if (editingProduct) {
       setName(editingProduct.name);
       setSku(editingProduct.sku);
-      setCategoryId(editingProduct.category?.id ?? null);
+      setCategoryId(
+        typeof editingProduct.category === "object"
+          ? editingProduct.category?.id
+          : undefined
+      );
       setPrice(String(editingProduct.price));
       setCost(String(editingProduct.cost));
       setStock(String(editingProduct.stock));
-      setIsActive(editingProduct.is_active);
+      setStatus(editingProduct.is_active ? "active" : "inactive");
     } else {
       setName("");
       setSku("");
-      setCategoryId(null);
+      setCategoryId(undefined);
       setPrice("");
       setCost("");
       setStock("");
-      setIsActive(true);
+      setStatus("active");
     }
     setFormError("");
   }, [editingProduct]);
 
+  async function handleCreateCategory(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!newCategoryName.trim()) {
+      toast.error("Category name is required.");
+      return;
+    }
+
+    setCreatingCategory(true);
+    try {
+      const res = await productsApi.createCategory({ name: newCategoryName.trim() });
+      await mutateCategories();
+      setCategoryId(res.data.id);
+      setNewCategoryName("");
+      setCategoryDialogOpen(false);
+      toast.success("Category created successfully.");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to create category.";
+      toast.error(message);
+    } finally {
+      setCreatingCategory(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setFormError("");
 
     if (!name.trim() || !sku.trim()) {
       setFormError("Name and SKU are required.");
+      return;
+    }
+    if (!price || Number(price) < 0) {
+      setFormError("Price must be a valid positive number.");
+      return;
+    }
+    if (!cost || Number(cost) < 0) {
+      setFormError("Cost must be a valid positive number.");
       return;
     }
 
@@ -157,21 +197,24 @@ function ProductFormDialog({
         price: parseFloat(price),
         cost: parseFloat(cost),
         stock: parseInt(stock) || 0,
-        is_active: isActive,
+        is_active: status === "active",
       };
 
       if (isEditing) {
         await productsApi.update(editingProduct!.id, payload);
-        toast.success("Product updated.");
+        toast.success(`${name} updated successfully.`);
       } else {
         await productsApi.create(payload);
-        toast.success("Product created.");
+        toast.success(`${name} created successfully.`);
       }
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed to save product.");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Operation failed. Please try again.";
+      setFormError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -183,74 +226,210 @@ function ProductFormDialog({
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Product" : "Create Product"}</DialogTitle>
           <DialogDescription>
-            Manage product information
+            {isEditing
+              ? `Update details for ${editingProduct?.name}.`
+              : "Fill in the details to add a new product."}
           </DialogDescription>
         </DialogHeader>
-
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {formError && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {formError}
+            <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>{formError}</span>
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-4">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
-            <Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder="SKU" />
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="prod-name">Name</Label>
+              <Input
+                id="prod-name"
+                placeholder="Product name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="prod-sku">SKU</Label>
+              <Input
+                id="prod-sku"
+                placeholder="e.g. PROD-001"
+                value={sku}
+                onChange={(e) => setSku(e.target.value)}
+                required
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Select
-              value={categoryId?.toString() ?? ""}
-              onValueChange={(v) => setCategoryId(v ? Number(v) : null)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories?.data.map((cat) => (
-                  <SelectItem key={cat.id} value={String(cat.id)}>
-                    {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={isActive ? "1" : "0"}
-              onValueChange={(v) => setIsActive(v === "1")}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">Active</SelectItem>
-                <SelectItem value="0">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Category</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setCategoryDialogOpen(true)}
+                >
+                  <Plus className="mr-1 h-3 w-3" />
+                  Create Category
+                </Button>
+              </div>
+              <Select
+                value={categoryId ? String(categoryId) : "none"}
+                onValueChange={(value) =>
+                  setCategoryId(value === "none" ? undefined : Number(value))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={categoriesLoading ? "Loading..." : "Select category"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Uncategorized</SelectItem>
+                  {(categories ?? []).map((cat) => (
+                    <SelectItem key={cat.id} value={String(cat.id)}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Status</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as ProductStatus)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Price" />
-            <Input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="Cost" />
-            <Input type="number" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="prod-price">Price</Label>
+              <Input
+                id="prod-price"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="prod-cost">Cost</Label>
+              <Input
+                id="prod-cost"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={cost}
+                onChange={(e) => setCost(e.target.value)}
+                required
+              />
+            </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="prod-stock">Stock</Label>
+            <Input
+              id="prod-stock"
+              type="number"
+              min="0"
+              placeholder="0"
+              value={stock}
+              onChange={(e) => setStock(e.target.value)}
+              required
+            />
+          </div>
+
+          <DialogFooter className="gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
             <Button type="submit" disabled={saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save
+              {isEditing ? "Save Changes" : "Create Product"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Create Category</DialogTitle>
+            <DialogDescription>
+              Add a new category to use for products.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateCategory} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-category-name">Category Name</Label>
+              <Input
+                id="new-category-name"
+                placeholder="e.g. Beverages"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCategoryDialogOpen(false)}
+                disabled={creatingCategory}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={creatingCategory}>
+                {creatingCategory && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Create
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
 
-/* ------------------------------- Main Page ------------------------------- */
+// ---- Table Skeleton ----
+function ProductsTableSkeleton() {
+  return (
+    <div className="flex flex-col gap-3">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4">
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="h-5 w-20" />
+          <Skeleton className="h-5 w-20" />
+          <Skeleton className="h-5 w-16" />
+          <Skeleton className="h-5 w-12" />
+          <Skeleton className="h-5 w-16" />
+          <Skeleton className="h-5 w-8 ml-auto" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
+// ---- Main Page ----
 export default function ProductsPage() {
   const router = useRouter();
   const { hasPermission } = useAuth();
@@ -264,69 +443,344 @@ export default function ProductsPage() {
   const { data, isLoading, error, mutate } = useProducts({
     page,
     search: search || undefined,
-    include_inactive: showInactive,
+    include_inactive: showInactive ,
   });
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState<Product | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [restoringId, setRestoringId] = useState<number | null>(null);
+
+  const handleSearch = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      setSearch(searchInput);
+      setPage(1);
+    },
+    [searchInput]
+  );
+
+  async function handleDelete() {
+    if (!deleting) return;
+    setDeleteLoading(true);
+    try {
+      await productsApi.delete(deleting.id);
+      toast.success(`${deleting.name} has been deleted.`);
+      mutate();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete product.");
+    } finally {
+      setDeleteLoading(false);
+      setDeleting(null);
+    }
+  }
+
+  async function handleRestore(product: Product) {
+    setRestoringId(product.id);
+    try {
+      await productsApi.restore(product.id);
+      toast.success(`${product.name} has been restored.`);
+      mutate();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to restore product.");
+    } finally {
+      setRestoringId(null);
+    }
+  }
 
   const productsList = data?.data ?? [];
+  const totalPages = data?.last_page ?? 1;
+  const totalProducts = data?.total ?? 0;
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Products</h1>
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Products</h1>
+          <p className="text-muted-foreground">
+            {canManage
+              ? "Manage your product catalog and inventory."
+              : "Browse the product catalog."}
+          </p>
+        </div>
         {canManage && (
-          <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
-            <Plus className="mr-2 h-4 w-4" /> Create Product
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Create Product
           </Button>
         )}
       </div>
 
+      {/* Search & Filters */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search products..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-64 pl-9"
+            />
+          </div>
+          <Button type="submit" variant="secondary" size="default">
+            Search
+          </Button>
+        </form>
+        {canManage && (
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-inactive"
+              checked={showInactive}
+              onCheckedChange={(v) => {
+                setShowInactive(v);
+                setPage(1);
+              }}
+            />
+            <Label htmlFor="show-inactive" className="text-sm">
+              Show inactive / deleted
+            </Label>
+          </div>
+        )}
+      </div>
+
+      {/* Table Card */}
       <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Product Catalog
+              </CardTitle>
+              <CardDescription className="mt-1">
+                {totalProducts} product{totalProducts !== 1 ? "s" : ""} found
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
         <CardContent>
           {isLoading ? (
-            <Skeleton className="h-40 w-full" />
+            <ProductsTableSkeleton />
           ) : error ? (
-            <p className="text-destructive">Failed to load products</p>
+            <div className="flex flex-col items-center gap-3 py-12">
+              <AlertTriangle className="h-6 w-6 text-destructive" />
+              <p className="text-sm text-muted-foreground">
+                Failed to load products. Please try again.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => mutate()}>
+                Retry
+              </Button>
+            </div>
+          ) : productsList.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-12">
+              <Package className="h-8 w-8 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">
+                {search
+                  ? "No products match your search."
+                  : "No products yet. Create your first product."}
+              </p>
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {productsList.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell>{p.name}</TableCell>
-                    <TableCell>{p.sku}</TableCell>
-                    <TableCell>{p.category?.name ?? "—"}</TableCell>
-                    <TableCell>
-                      {p.is_active ? (
-                        <Badge className="bg-green-600">Active</Badge>
-                      ) : (
-                        <Badge variant="outline">Inactive</Badge>
-                      )}
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right">Stock</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-16 text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {productsList.map((product) => {
+                    const pStatus = getProductStatus(product);
+                    return (
+                      <TableRow
+                        key={product.id}
+                        className={pStatus === "deleted" ? "opacity-60" : undefined}
+                      >
+                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell className="font-mono text-sm text-muted-foreground">
+                          {product.sku}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {typeof product.category === "string"
+                            ? product.category
+                            : product.category?.name ?? "\u2014"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {formatCurrency(product.price)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span
+                            className={
+                              product.stock <= (product.low_stock_threshold ?? 10)
+                                ? "font-semibold text-destructive"
+                                : ""
+                            }
+                          >
+                            {product.stock}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {pStatus === "deleted" ? (
+                            <Badge variant="destructive">Deleted</Badge>
+                          ) : pStatus === "active" ? (
+                            <Badge className="bg-success text-success-foreground">
+                              Active
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-muted-foreground">
+                              Inactive
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                aria-label={`Actions for ${product.name}`}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {/* View Profile */}
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  router.push(`/dashboard/products/${product.id}`)
+                                }
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Profile
+                              </DropdownMenuItem>
+
+                              {/* Edit / Delete */}
+                              {canManage && !product.deleted_at && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setEditing(product);
+                                      setFormOpen(true);
+                                    }}
+                                  >
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => setDeleting(product)}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+
+                              {/* Restore Deleted */}
+                              {canManage && product.deleted_at && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleRestore(product)}
+                                    disabled={restoringId === product.id}
+                                  >
+                                    {restoringId === product.id ? (
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <RotateCcw className="mr-2 h-4 w-4" />
+                                    )}
+                                    Restore
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page === 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span>
+            Page {page} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page === totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {/* Product Form Dialog */}
       <ProductFormDialog
         open={formOpen}
         onClose={() => setFormOpen(false)}
         editingProduct={editing}
         onSuccess={mutate}
       />
+
+      {/* Delete Confirmation */}
+      <AlertDialog
+        open={!!deleting}
+        onOpenChange={(v) => !v && setDeleting(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {deleting?.name}? This action can
+              be restored later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/80"
+              onClick={handleDelete}
+              disabled={deleteLoading}
+            >
+              {deleteLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
