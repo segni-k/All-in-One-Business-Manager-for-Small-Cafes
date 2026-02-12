@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -26,6 +27,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'avatar_url',
         'password',
         'role_id',
         'is_active'
@@ -75,6 +77,13 @@ class User extends Authenticatable
         return $this->role?->permissions?->pluck('name')->contains($permission) ?? false;
     }
 
+    public function seenNotifications(): BelongsToMany
+    {
+        return $this->belongsToMany(Notification::class, 'notification_user_reads')
+            ->withPivot('read_at')
+            ->withTimestamps();
+    }
+
 
     /**
      * Get the attributes that should be cast.
@@ -88,4 +97,5 @@ class User extends Authenticatable
             'is_active' => 'boolean',
         ];
     }
+
 }

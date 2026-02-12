@@ -13,6 +13,7 @@ class Product extends Model
         'name',
         'sku',
         'category_id',
+        'image_url',
         'price',
         'cost',
         'stock',
@@ -52,5 +53,5 @@ class Product extends Model
     {
         return (float) ($this->price - $this->cost);
     }
-}
 
+}
