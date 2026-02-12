@@ -25,6 +25,7 @@ class UpdateProductRequest extends FormRequest
             'name'        => 'sometimes|string|max:255',
             'sku'         => 'sometimes|nullable|string|max:100|unique:products,sku,' . $this->product->id,
             'category_id' => 'sometimes|nullable|exists:categories,id',
+            'image_url'   => 'sometimes|nullable|url|max:2048',
             'price'       => 'sometimes|numeric|min:0',
             'cost'        => 'sometimes|numeric|min:0',
             'stock'       => 'sometimes|integer|min:0',
