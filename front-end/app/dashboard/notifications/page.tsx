@@ -17,7 +17,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNotifications } from "@/lib/hooks";
+import { notifications as notificationsApi } from "@/lib/api";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 function getNotificationIcon(type: string) {
   if (type.includes("stock") || type.includes("inventory")) {
@@ -40,8 +42,19 @@ function getNotificationBadge(type: string) {
 }
 
 export default function NotificationsPage() {
-  const { data, isLoading, error } = useNotifications();
+  const { data, isLoading, error, mutate } = useNotifications();
   const notifications = data?.data ?? [];
+  const unseenCount = data?.unseen_count ?? 0;
+
+  async function markSeen(id: number, readAt: string | null) {
+    if (readAt) return;
+    try {
+      await notificationsApi.markSeen(id);
+      mutate();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update notification.");
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -49,6 +62,11 @@ export default function NotificationsPage() {
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
           <Bell className="h-6 w-6" />
           Notifications
+          {unseenCount > 0 && (
+            <Badge className="bg-destructive text-destructive-foreground">
+              {unseenCount} new
+            </Badge>
+          )}
         </h1>
         <p className="text-muted-foreground">
           Stay updated with low stock alerts, unpaid orders, and other
@@ -98,6 +116,7 @@ export default function NotificationsPage() {
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
+                  onClick={() => markSeen(notification.id, notification.read_at)}
                   className={`flex items-start gap-3 rounded-lg p-3 transition-colors hover:bg-muted/50 ${
                     !notification.read_at ? "bg-primary/5" : ""
                   }`}
