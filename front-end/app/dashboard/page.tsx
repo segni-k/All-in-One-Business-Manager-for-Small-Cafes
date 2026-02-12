@@ -197,7 +197,7 @@ function ApiNotConfigured() {
 function DailySalesChart({
   trends,
 }: {
-  trends: Array<{ date: string; sales: number; profit: number }>;
+  trends: Array<{ date: string; total_sales: number; profit: number }>;
 }) {
   if (trends.length === 0) {
     return (
@@ -251,7 +251,7 @@ function DailySalesChart({
           <Legend />
           <Area
             type="monotone"
-            dataKey="sales"
+            dataKey="total_sales"
             name="Sales"
             stroke="hsl(172, 66%, 30%)"
             strokeWidth={2}
@@ -274,7 +274,7 @@ function DailySalesChart({
 function PendingOrdersChart({
   trends,
 }: {
-  trends: Array<{ date: string; orders: number }>;
+  trends: Array<{ date: string; order_count: number }>;
 }) {
   if (trends.length === 0) {
     return (
@@ -299,7 +299,7 @@ function PendingOrdersChart({
             }}
           />
           <Bar
-            dataKey="orders"
+            dataKey="order_count"
             name="Orders"
             fill="hsl(172, 66%, 30%)"
             radius={[4, 4, 0, 0]}
@@ -314,7 +314,7 @@ function PendingOrdersChart({
 export default function DashboardPage() {
   const apiConfigured = !!getApiUrl();
   const { data, isLoading, error, mutate } = useDashboard();
-  const d = data?.data;
+  const d = data;
 
   if (!apiConfigured) return <ApiNotConfigured />;
   if (isLoading) return <DashboardSkeleton />;
@@ -351,8 +351,9 @@ export default function DashboardPage() {
   }
 
   const profit = d?.daily_profit_loss?.profit ?? 0;
-  const profitTrend = profit >= 0 ? "up" : "down";
-  const trends = d?.daily_trends ?? [];
+  const monthlyProfit = d?.monthly_profit_loss?.profit ?? 0;
+  const yearlyProfit = d?.yearly_profit_loss?.profit ?? 0;
+  const trends = d?.sales_profit_trends ?? d?.daily_trends ?? [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -371,7 +372,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           title="Today's Sales"
           value={formatCurrency(d?.todays_sales ?? 0)}
@@ -388,7 +389,7 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Pending Orders"
-          value={String(d?.pending_orders ?? 0)}
+          value={String(d?.pending_orders_count ?? d?.pending_orders ?? 0)}
           icon={Clock}
           iconColor="bg-warning"
           description="Awaiting completion"
@@ -406,6 +407,14 @@ export default function DashboardPage() {
             (d?.low_stock_products?.length ?? 0) > 0 ? "down" : "neutral"
           }
         />
+        <StatCard
+          title="Monthly P/L"
+          value={formatCurrency(monthlyProfit)}
+          icon={BarChart3}
+          iconColor={monthlyProfit >= 0 ? "bg-success" : "bg-destructive"}
+          trend={monthlyProfit >= 0 ? "up" : "down"}
+          description="Current month profit/loss"
+        />
       </div>
 
       {/* Profit Summary Card */}
@@ -414,12 +423,12 @@ export default function DashboardPage() {
           <div>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              Daily Profit / Loss
-            </CardTitle>
-            <CardDescription className="mt-1">
-              {"Today's financial summary"}
-            </CardDescription>
-          </div>
+            Profit / Loss Snapshot
+          </CardTitle>
+          <CardDescription className="mt-1">
+              Daily, monthly, and yearly performance
+          </CardDescription>
+        </div>
           <div
             className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold ${
               profit >= 0
@@ -436,33 +445,27 @@ export default function DashboardPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">
-                Total Sales
-              </span>
+              <span className="text-xs text-muted-foreground">Daily Profit</span>
               <span className="text-lg font-bold font-mono">
-                {formatCurrency(d?.daily_profit_loss?.total_sales ?? 0)}
+                {formatCurrency(d?.daily_profit_loss?.profit ?? 0)}
               </span>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">
-                Total Cost
-              </span>
+              <span className="text-xs text-muted-foreground">Monthly Profit</span>
               <span className="text-lg font-bold font-mono">
-                {formatCurrency(d?.daily_profit_loss?.total_cost ?? 0)}
+                {formatCurrency(monthlyProfit)}
               </span>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">
-                Net Profit
-              </span>
+              <span className="text-xs text-muted-foreground">Yearly Profit</span>
               <span
                 className={`text-lg font-bold font-mono ${
-                  profit >= 0 ? "text-success" : "text-destructive"
+                  yearlyProfit >= 0 ? "text-success" : "text-destructive"
                 }`}
               >
-                {formatCurrency(profit)}
+                {formatCurrency(yearlyProfit)}
               </span>
             </div>
           </div>
@@ -512,7 +515,7 @@ export default function DashboardPage() {
             <CardDescription>Latest orders placed today</CardDescription>
           </CardHeader>
           <CardContent>
-            {d?.recent_orders && d.recent_orders.length > 0 ? (
+            {d?.pending_orders_list && d.pending_orders_list.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -524,10 +527,10 @@ export default function DashboardPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {d.recent_orders.slice(0, 10).map((order) => (
+                    {d.pending_orders_list.slice(0, 10).map((order) => (
                       <TableRow key={order.id}>
                         <TableCell className="font-mono text-sm font-medium">
-                          {order.order_number}
+                          {order.order_number ?? `#${order.id}`}
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -559,9 +562,7 @@ export default function DashboardPage() {
             ) : (
               <div className="flex flex-col items-center gap-2 py-10">
                 <ShoppingCart className="h-8 w-8 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">
-                  No recent orders today.
-                </p>
+                <p className="text-sm text-muted-foreground">No pending orders right now.</p>
               </div>
             )}
           </CardContent>
