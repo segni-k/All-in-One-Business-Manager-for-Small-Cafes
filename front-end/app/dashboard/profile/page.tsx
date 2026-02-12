@@ -26,13 +26,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -43,7 +36,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
 import { profile as profileApi } from "@/lib/api";
-import { USER_AVATAR_OPTIONS } from "@/lib/avatar-options";
 
 function getRoleLabel(role: string) {
   switch (role) {
@@ -93,20 +85,17 @@ function EditProfileDialog({
   onClose,
   currentName,
   currentEmail,
-  currentAvatar,
   onSuccess,
 }: {
   open: boolean;
   onClose: () => void;
   currentName: string;
   currentEmail: string;
-  currentAvatar?: string | null;
   onSuccess: () => Promise<void>;
 }) {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [selectedAvatar, setSelectedAvatar] = useState("none");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -115,13 +104,11 @@ function EditProfileDialog({
   useEffect(() => {
     setName(currentName);
     setEmail(currentEmail);
-    const isPresetAvatar = USER_AVATAR_OPTIONS.some((a) => a.url === currentAvatar);
-    setSelectedAvatar(isPresetAvatar ? (currentAvatar as string) : "none");
     setPassword("");
     setPasswordConfirm("");
     setCurrentPassword("");
     setFormError("");
-  }, [currentName, currentEmail, currentAvatar, open]);
+  }, [currentName, currentEmail, open]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -147,7 +134,6 @@ function EditProfileDialog({
       const payload: {
         name?: string;
         email?: string;
-        avatar_url?: string | null;
         current_password?: string;
         password?: string;
         password_confirmation?: string;
@@ -155,9 +141,6 @@ function EditProfileDialog({
 
       if (name.trim() !== currentName) payload.name = name.trim();
       if (email.trim() !== currentEmail) payload.email = email.trim();
-      if ((selectedAvatar || "none") !== (currentAvatar ?? "none")) {
-        payload.avatar_url = selectedAvatar === "none" ? null : selectedAvatar;
-      }
       if (password) {
         payload.current_password = currentPassword;
         payload.password = password;
@@ -191,7 +174,7 @@ function EditProfileDialog({
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
           <DialogDescription>
-            Update your personal info, avatar, and password.
+            Update your personal info and password.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -222,23 +205,6 @@ function EditProfileDialog({
               onChange={(e) => setEmail(e.target.value)}
               required
             />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label>Avatar (Optional)</Label>
-            <Select value={selectedAvatar} onValueChange={setSelectedAvatar}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose an avatar" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No avatar</SelectItem>
-                {USER_AVATAR_OPTIONS.map((avatar) => (
-                  <SelectItem key={avatar.id} value={avatar.url}>
-                    {avatar.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <Separator />
@@ -468,7 +434,6 @@ export default function ProfilePage() {
           onClose={() => setEditOpen(false)}
           currentName={user.name}
           currentEmail={user.email}
-          currentAvatar={user.avatar_url}
           onSuccess={refreshUser}
         />
       )}

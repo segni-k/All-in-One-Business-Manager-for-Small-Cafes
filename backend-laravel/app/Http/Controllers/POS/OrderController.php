@@ -58,6 +58,7 @@ class OrderController extends Controller
         $validated = $request->validate([
             'discount' => 'nullable|numeric|min:0',
             'payment_method' => 'required|in:cash,card,mobile_money',
+            'status' => 'sometimes|in:pending,paid',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
@@ -126,4 +127,3 @@ class OrderController extends Controller
         return response()->json($cancelledOrder);
     }
 }
-

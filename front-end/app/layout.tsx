@@ -18,6 +18,11 @@ export const metadata: Metadata = {
   title: "Project Manager - All-in-One Business Management",
   description:
     "Manage your staff, inventory, POS, orders, and reports in one place.",
+  icons: {
+    icon: "/placeholder-logo.svg",
+    shortcut: "/placeholder-logo.svg",
+    apple: "/placeholder-logo.svg",
+  },
 };
 
 export default function RootLayout({

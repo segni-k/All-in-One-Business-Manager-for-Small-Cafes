@@ -6,6 +6,7 @@ import {
   Package,
   ShoppingCart,
   Info,
+  RefreshCw,
 } from "lucide-react";
 import {
   Card,
@@ -18,8 +19,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNotifications } from "@/lib/hooks";
 import { notifications as notificationsApi } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 function getNotificationIcon(type: string) {
   if (type.includes("stock") || type.includes("inventory")) {
@@ -42,9 +45,27 @@ function getNotificationBadge(type: string) {
 }
 
 export default function NotificationsPage() {
-  const { data, isLoading, error, mutate } = useNotifications();
+  const { hasPermission } = useAuth();
+  const canUsePos = hasPermission("use_pos");
+  const { data, isLoading, error, mutate } = useNotifications({
+    enabled: canUsePos,
+  });
   const notifications = data?.data ?? [];
   const unseenCount = data?.unseen_count ?? 0;
+
+  if (!canUsePos) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-20">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+          <AlertTriangle className="h-6 w-6 text-destructive" />
+        </div>
+        <p className="text-sm font-medium text-foreground">Access Denied</p>
+        <p className="text-sm text-muted-foreground">
+          You do not have permission to view notifications.
+        </p>
+      </div>
+    );
+  }
 
   async function markSeen(id: number, readAt: string | null) {
     if (readAt) return;
@@ -59,15 +80,21 @@ export default function NotificationsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Bell className="h-6 w-6" />
-          Notifications
-          {unseenCount > 0 && (
-            <Badge className="bg-destructive text-destructive-foreground">
-              {unseenCount} new
-            </Badge>
-          )}
-        </h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <Bell className="h-6 w-6" />
+            Notifications
+            {unseenCount > 0 && (
+              <Badge className="bg-destructive text-destructive-foreground">
+                {unseenCount} new
+              </Badge>
+            )}
+          </h1>
+          <Button variant="outline" size="sm" onClick={() => mutate()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
         <p className="text-muted-foreground">
           Stay updated with low stock alerts, unpaid orders, and other
           important events.
@@ -99,8 +126,13 @@ export default function NotificationsPage() {
             <div className="flex flex-col items-center gap-2 py-8">
               <AlertTriangle className="h-6 w-6 text-destructive" />
               <p className="text-sm text-muted-foreground">
-                Failed to load notifications.
+                {error instanceof Error
+                  ? error.message
+                  : "Failed to load notifications."}
               </p>
+              <Button variant="outline" size="sm" onClick={() => mutate()}>
+                Retry
+              </Button>
             </div>
           ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-12">
@@ -130,7 +162,7 @@ export default function NotificationsPage() {
                         {getNotificationBadge(notification.type)}
                       </Badge>
                       {!notification.read_at && (
-                        <span className="h-2 w-2 rounded-full bg-primary" />
+                        <span className="h-2 w-2 rounded-full bg-yellow-400" />
                       )}
                     </div>
                     <p className="text-sm">{notification.message}</p>
@@ -150,3 +182,4 @@ export default function NotificationsPage() {
     </div>
   );
 }
+

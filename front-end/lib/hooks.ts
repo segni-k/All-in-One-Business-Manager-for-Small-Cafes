@@ -52,9 +52,11 @@ export function useDashboard() {
 
 // ==============================
 // ---- Notifications ----
-export function useNotifications() {
+export function useNotifications(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true;
+
   return useSWR<NotificationsResponse>(
-    getApiUrl() ? "notifications" : null,
+    getApiUrl() && enabled ? "notifications" : null,
     async () => {
       const res = await notifications.list();
       return {
@@ -65,7 +67,8 @@ export function useNotifications() {
         })),
         unseen_count: res.unseen_count ?? 0,
       };
-    }
+    },
+    { refreshInterval: 30000 }
   );
 }
 

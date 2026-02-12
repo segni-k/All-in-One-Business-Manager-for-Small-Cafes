@@ -24,19 +24,36 @@ class POSService
     public function createOrder(array $data, User $user): Order
     {
         return DB::transaction(function () use ($data, $user) {
+            $status = $data['status'] ?? 'pending';
+            $isPaid = $status === 'paid';
 
             $order = Order::create([
                 'user_id' => $user->id,
                 'discount' => $data['discount'] ?? 0,
-                'status' => 'pending',
-                'payment_status' => 'pending',
+                'status' => $status,
+                'payment_status' => $isPaid ? 'paid' : 'pending',
                 'payment_method' => $data['payment_method'],
+                'paid_at' => $isPaid ? now() : null,
             ]);
 
             $total = 0;
 
             foreach ($data['items'] as $itemData) {
                 $product = Product::findOrFail($itemData['product_id']);
+
+                if (!$product->is_active) {
+                    throw new HttpException(
+                        422,
+                        "{$product->name} is unavailable"
+                    );
+                }
+
+                if ($product->stock <= 0) {
+                    throw new HttpException(
+                        422,
+                        "{$product->name} is out of stock"
+                    );
+                }
 
                 if ($product->stock < $itemData['quantity']) {
                     throw new HttpException(
@@ -104,6 +121,20 @@ class POSService
 
             foreach ($data['items'] as $itemData) {
                 $product = Product::findOrFail($itemData['product_id']);
+
+                if (!$product->is_active) {
+                    throw new HttpException(
+                        422,
+                        "{$product->name} is unavailable"
+                    );
+                }
+
+                if ($product->stock <= 0) {
+                    throw new HttpException(
+                        422,
+                        "{$product->name} is out of stock"
+                    );
+                }
 
                 if ($product->stock < $itemData['quantity']) {
                     throw new HttpException(

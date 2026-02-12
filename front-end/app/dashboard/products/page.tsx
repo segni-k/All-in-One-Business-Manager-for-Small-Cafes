@@ -73,7 +73,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCategories, useProducts } from "@/lib/hooks";
 import { products as productsApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { PRODUCT_AVATAR_OPTIONS } from "@/lib/avatar-options";
 import type { Product, ProductPayload, ProductStatus } from "@/lib/types";
 
 // ---- Helpers ----
@@ -115,7 +114,6 @@ function ProductFormDialog({
 
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
-  const [selectedAvatar, setSelectedAvatar] = useState("none");
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
   const [price, setPrice] = useState("");
   const [cost, setCost] = useState("");
@@ -127,10 +125,6 @@ function ProductFormDialog({
     if (editingProduct) {
       setName(editingProduct.name);
       setSku(editingProduct.sku);
-      const isPresetAvatar = PRODUCT_AVATAR_OPTIONS.some(
-        (avatar) => avatar.url === editingProduct.image_url
-      );
-      setSelectedAvatar(isPresetAvatar ? (editingProduct.image_url as string) : "none");
       setCategoryId(
         typeof editingProduct.category === "object"
           ? editingProduct.category?.id
@@ -143,7 +137,6 @@ function ProductFormDialog({
     } else {
       setName("");
       setSku("");
-      setSelectedAvatar("none");
       setCategoryId(undefined);
       setPrice("");
       setCost("");
@@ -200,7 +193,6 @@ function ProductFormDialog({
       const payload: ProductPayload = {
         name: name.trim(),
         sku: sku.trim(),
-        image_url: selectedAvatar === "none" ? null : selectedAvatar,
         category_id: categoryId,
         price: parseFloat(price),
         cost: parseFloat(cost),
@@ -269,23 +261,6 @@ function ProductFormDialog({
                 required
               />
             </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label>Product Avatar (Optional)</Label>
-            <Select value={selectedAvatar} onValueChange={setSelectedAvatar}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a product avatar" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No avatar</SelectItem>
-                {PRODUCT_AVATAR_OPTIONS.map((avatar) => (
-                  <SelectItem key={avatar.id} value={avatar.url}>
-                    {avatar.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

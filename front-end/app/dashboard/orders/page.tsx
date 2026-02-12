@@ -345,7 +345,7 @@ function OrderFormDialog({
   }, [editingOrder]);
 
   const availableProducts = (productsData?.data ?? []).filter(
-    (p) => p.is_active && p.stock > 0
+    (p) => p.is_active
   );
 
   const filteredProducts = productSearch
@@ -357,6 +357,11 @@ function OrderFormDialog({
     : availableProducts;
 
   function addItem(product: Product) {
+    if (product.stock <= 0) {
+      toast.error(`${product.name} is out of stock.`);
+      return;
+    }
+
     setItems((prev) => {
       const existing = prev.find((i) => i.product_id === product.id);
       if (existing) {
@@ -379,7 +384,7 @@ function OrderFormDialog({
       setItems((prev) => prev.filter((i) => i.product_id !== productId));
     } else {
       const item = items.find((i) => i.product_id === productId);
-      if (item && qty > item.product.stock && !isEditing) {
+      if (item && qty > item.product.stock) {
         toast.error(`Only ${item.product.stock} available.`);
         return;
       }
@@ -528,12 +533,14 @@ function OrderFormDialog({
                       const inCart = items.find(
                         (i) => i.product_id === product.id
                       );
+                      const isOutOfStock = product.stock <= 0;
                       return (
                         <button
                           key={product.id}
                           type="button"
                           onClick={() => addItem(product)}
-                          className="flex items-center justify-between rounded-md p-2.5 text-left text-sm transition-colors hover:bg-muted"
+                          disabled={isOutOfStock}
+                          className="flex items-center justify-between rounded-md p-2.5 text-left text-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
@@ -558,6 +565,11 @@ function OrderFormDialog({
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
+                            {isOutOfStock && (
+                              <Badge variant="destructive" className="text-xs">
+                                Out of stock
+                              </Badge>
+                            )}
                             {inCart && (
                               <Badge
                                 variant="secondary"

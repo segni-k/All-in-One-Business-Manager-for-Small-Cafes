@@ -448,13 +448,21 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">Daily Profit</span>
-              <span className="text-lg font-bold font-mono">
+              <span
+                className={`text-lg font-bold font-mono ${
+                  profit >= 0 ? "text-success" : "text-destructive"
+                }`}
+              >
                 {formatCurrency(d?.daily_profit_loss?.profit ?? 0)}
               </span>
             </div>
             <div className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">Monthly Profit</span>
-              <span className="text-lg font-bold font-mono">
+              <span
+                className={`text-lg font-bold font-mono ${
+                  monthlyProfit >= 0 ? "text-success" : "text-destructive"
+                }`}
+              >
                 {formatCurrency(monthlyProfit)}
               </span>
             </div>

@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
+import { useNotifications } from "@/lib/hooks";
 import type { Permission } from "@/lib/types";
 
 interface NavItem {
@@ -65,12 +66,20 @@ const mainNav: NavItem[] = [
     icon: BarChart3,
     permission: "view_reports",
   },
-  { title: "Notifications", href: "/dashboard/notifications", icon: Bell },
+  {
+    title: "Notifications",
+    href: "/dashboard/notifications",
+    icon: Bell,
+    permission: "use_pos",
+  },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { user, logout, hasPermission } = useAuth();
+  const canUsePos = hasPermission("use_pos");
+  const { data: notificationsData } = useNotifications({ enabled: canUsePos });
+  const unseenCount = notificationsData?.unseen_count ?? 0;
 
   const visibleNav = mainNav.filter(
     (item) => !item.permission || hasPermission(item.permission)
@@ -116,6 +125,9 @@ export function AppSidebar() {
                     ? pathname === "/dashboard"
                     : pathname.startsWith(item.href);
 
+                const showUnseenDot =
+                  item.href === "/dashboard/notifications" && unseenCount > 0;
+
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
@@ -124,7 +136,12 @@ export function AppSidebar() {
                       tooltip={item.title}
                     >
                       <Link href={item.href}>
-                        <item.icon />
+                        <span className="relative inline-flex">
+                          <item.icon />
+                          {showUnseenDot && (
+                            <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-yellow-400 ring-2 ring-background" />
+                          )}
+                        </span>
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
