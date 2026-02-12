@@ -33,7 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
 import type { Permission } from "@/lib/types";
 
@@ -146,6 +146,7 @@ export function AppSidebar() {
                   className="data-[state=open]:bg-sidebar-accent"
                 >
                   <Avatar className="h-8 w-8">
+                    <AvatarImage src={user?.avatar_url ?? undefined} alt={user?.name ?? "User"} />
                     <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs">
                       {initials}
                     </AvatarFallback>
