@@ -21,7 +21,10 @@ class ReportController extends Controller
      */
     public function daily(Request $request): JsonResponse
     {
-        $report = $this->reportService->dailyProfitLoss($request->query('date'));
+        $date = $request->query('date');
+        $report = $date
+            ? $this->reportService->dailyProfitLoss($date)
+            : $this->reportService->dailyTrend((int) $request->query('days', 30));
         return response()->json($report, 200);
     }
 
@@ -30,12 +33,31 @@ class ReportController extends Controller
      */
     public function monthly(Request $request): JsonResponse
     {
-        $report = $this->reportService->monthlyProfitLoss(
-            (int) $request->query('month'),
-            (int) $request->query('year')
-        );
+        $year = $request->query('year');
+        $month = $request->query('month');
+        $report = $month
+            ? $this->reportService->monthlyProfitLoss((int) $month, $year ? (int) $year : null)
+            : $this->reportService->monthlyTrend($year ? (int) $year : null);
 
         return response()->json($report, 200);
     }
-}
 
+    /**
+     * GET /api/reports/yearly?years=5
+     */
+    public function yearly(Request $request): JsonResponse
+    {
+        $years = (int) $request->query('years', 5);
+        $report = $this->reportService->yearlyTrend($years);
+        return response()->json($report, 200);
+    }
+
+    /**
+     * GET /api/reports/overall
+     */
+    public function overall(): JsonResponse
+    {
+        $report = $this->reportService->overallSummary();
+        return response()->json($report, 200);
+    }
+}
