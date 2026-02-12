@@ -23,7 +23,6 @@ class NotificationService
         $notification = Notification::create([
             'type' => $type,
             'message' => $message,
-            'meta' => $meta,
             'sent' => false, // will be set true after push/email/SMS
         ]);
 
