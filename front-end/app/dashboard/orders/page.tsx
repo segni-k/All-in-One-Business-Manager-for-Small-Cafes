@@ -16,6 +16,8 @@ import {
   Minus,
   MoreHorizontal,
   Search,
+  RefreshCw,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -249,7 +251,23 @@ function OrderDetailsDialog({
                 {order.items?.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
-                      {item.product?.name ?? `Product #${item.product_id}`}
+                      <div className="flex items-center gap-2">
+                        {item.product?.image_url ? (
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.product.image_url}
+                              alt={item.product?.name ?? `Product #${item.product_id}`}
+                              className="h-8 w-8 rounded object-cover"
+                            />
+                          </>
+                        ) : (
+                          <div className="flex h-8 w-8 items-center justify-center rounded bg-muted">
+                            <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                          </div>
+                        )}
+                        <span>{item.product?.name ?? `Product #${item.product_id}`}</span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       {item.quantity}
@@ -518,9 +536,23 @@ function OrderFormDialog({
                           className="flex items-center justify-between rounded-md p-2.5 text-left text-sm transition-colors hover:bg-muted"
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="truncate font-medium">
-                              {product.name}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              {product.image_url ? (
+                                <>
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={product.image_url}
+                                    alt={product.name}
+                                    className="h-8 w-8 rounded object-cover"
+                                  />
+                                </>
+                              ) : (
+                                <div className="flex h-8 w-8 items-center justify-center rounded bg-muted">
+                                  <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                                </div>
+                              )}
+                              <p className="truncate font-medium">{product.name}</p>
+                            </div>
                             <p className="text-xs text-muted-foreground">
                               {product.sku} &middot; Stock: {product.stock}
                             </p>
@@ -562,9 +594,23 @@ function OrderFormDialog({
                         className="flex items-center justify-between rounded-md bg-muted/50 p-2.5"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
-                            {item.product.name}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            {item.product.image_url ? (
+                              <>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={item.product.image_url}
+                                  alt={item.product.name}
+                                  className="h-8 w-8 rounded object-cover"
+                                />
+                              </>
+                            ) : (
+                              <div className="flex h-8 w-8 items-center justify-center rounded bg-muted">
+                                <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                              </div>
+                            )}
+                            <p className="truncate text-sm font-medium">{item.product.name}</p>
+                          </div>
                           <p className="font-mono text-xs text-muted-foreground">
                             {formatCurrency(
                               item.product.price * item.quantity
@@ -707,6 +753,7 @@ export default function OrdersPage() {
   const [cancelling, setCancelling] = useState<Order | null>(null);
   const [completingId, setCompletingId] = useState<number | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   if (!hasPermission("use_pos")) {
     return (
@@ -754,6 +801,18 @@ export default function OrdersPage() {
     }
   }
 
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await mutate();
+      toast.success("Orders refreshed.");
+    } catch {
+      toast.error("Failed to refresh orders.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   const ordersList = data?.data ?? [];
   const totalPages = data?.last_page ?? 1;
 
@@ -767,15 +826,25 @@ export default function OrdersPage() {
             Create and manage point-of-sale orders.
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add Order
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
+            {refreshing ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            Refresh
+          </Button>
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Order
+          </Button>
+        </div>
       </div>
 
       {/* Orders Table Card */}
