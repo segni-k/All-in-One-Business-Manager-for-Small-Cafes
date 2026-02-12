@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   User as UserIcon,
@@ -11,6 +11,7 @@ import {
   Loader2,
   AlertTriangle,
   CheckCircle,
+  RefreshCw,
 } from "lucide-react";
 import {
   Card,
@@ -25,6 +26,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -32,9 +40,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
 import { profile as profileApi } from "@/lib/api";
+import { USER_AVATAR_OPTIONS } from "@/lib/avatar-options";
 
 function getRoleLabel(role: string) {
   switch (role) {
@@ -72,39 +81,47 @@ function getPermissionLabel(perm: string) {
       return "Manage Inventory";
     case "view_reports":
       return "View Reports";
+    case "refund_order":
+      return "Refund Orders";
     default:
       return perm.replace(/_/g, " ");
   }
 }
 
-// ---- Edit Profile Dialog ----
 function EditProfileDialog({
   open,
   onClose,
   currentName,
   currentEmail,
+  currentAvatar,
   onSuccess,
 }: {
   open: boolean;
   onClose: () => void;
   currentName: string;
   currentEmail: string;
-  onSuccess: () => void;
+  currentAvatar?: string | null;
+  onSuccess: () => Promise<void>;
 }) {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [selectedAvatar, setSelectedAvatar] = useState("none");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [formError, setFormError] = useState("");
 
   useEffect(() => {
     setName(currentName);
     setEmail(currentEmail);
+    const isPresetAvatar = USER_AVATAR_OPTIONS.some((a) => a.url === currentAvatar);
+    setSelectedAvatar(isPresetAvatar ? (currentAvatar as string) : "none");
     setPassword("");
+    setPasswordConfirm("");
     setCurrentPassword("");
     setFormError("");
-  }, [currentName, currentEmail]);
+  }, [currentName, currentEmail, currentAvatar, open]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -112,6 +129,11 @@ function EditProfileDialog({
 
     if (!name.trim() || !email.trim()) {
       setFormError("Name and email are required.");
+      return;
+    }
+
+    if ((password || passwordConfirm) && password !== passwordConfirm) {
+      setFormError("New password and confirmation do not match.");
       return;
     }
 
@@ -125,15 +147,21 @@ function EditProfileDialog({
       const payload: {
         name?: string;
         email?: string;
-        password?: string;
+        avatar_url?: string | null;
         current_password?: string;
+        password?: string;
+        password_confirmation?: string;
       } = {};
 
       if (name.trim() !== currentName) payload.name = name.trim();
       if (email.trim() !== currentEmail) payload.email = email.trim();
+      if ((selectedAvatar || "none") !== (currentAvatar ?? "none")) {
+        payload.avatar_url = selectedAvatar === "none" ? null : selectedAvatar;
+      }
       if (password) {
-        payload.password = password;
         payload.current_password = currentPassword;
+        payload.password = password;
+        payload.password_confirmation = passwordConfirm;
       }
 
       if (Object.keys(payload).length === 0) {
@@ -142,8 +170,8 @@ function EditProfileDialog({
       }
 
       await profileApi.update(payload);
+      await onSuccess();
       toast.success("Profile updated successfully.");
-      onSuccess();
       onClose();
     } catch (err: unknown) {
       const message =
@@ -163,7 +191,7 @@ function EditProfileDialog({
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
           <DialogDescription>
-            Update your personal information.
+            Update your personal info, avatar, and password.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -178,7 +206,6 @@ function EditProfileDialog({
             <Label htmlFor="profile-name">Name</Label>
             <Input
               id="profile-name"
-              placeholder="Full name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -191,49 +218,66 @@ function EditProfileDialog({
             <Input
               id="profile-email"
               type="email"
-              placeholder="email@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
 
-          <Separator />
+          <div className="flex flex-col gap-1.5">
+            <Label>Avatar (Optional)</Label>
+            <Select value={selectedAvatar} onValueChange={setSelectedAvatar}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose an avatar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No avatar</SelectItem>
+                {USER_AVATAR_OPTIONS.map((avatar) => (
+                  <SelectItem key={avatar.id} value={avatar.url}>
+                    {avatar.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <p className="text-sm text-muted-foreground">
-            Leave password fields blank to keep your current password.
-          </p>
+          <Separator />
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="profile-current-password">Current Password</Label>
             <Input
               id="profile-current-password"
               type="password"
-              placeholder="Enter current password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="profile-new-password">New Password</Label>
-            <Input
-              id="profile-new-password"
-              type="password"
-              placeholder="Enter new password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              minLength={6}
-            />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="profile-new-password">New Password</Label>
+              <Input
+                id="profile-new-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                minLength={6}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="profile-new-password-confirm">Confirm Password</Label>
+              <Input
+                id="profile-new-password-confirm"
+                type="password"
+                value={passwordConfirm}
+                onChange={(e) => setPasswordConfirm(e.target.value)}
+                minLength={6}
+              />
+            </div>
           </div>
 
           <DialogFooter className="gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={saving}
-            >
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
@@ -247,10 +291,33 @@ function EditProfileDialog({
   );
 }
 
-// ---- Main Profile Page ----
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [editOpen, setEditOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const initials = useMemo(
+    () =>
+      (user?.name || "User")
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2),
+    [user?.name]
+  );
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await refreshUser();
+      toast.success("Profile refreshed.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to refresh profile.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   if (!user) {
     return (
@@ -265,31 +332,33 @@ export default function ProfilePage() {
     );
   }
 
-  const initials = user.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <UserIcon className="h-6 w-6" />
-          My Profile
-        </h1>
-        <p className="text-muted-foreground">
-          View and manage your personal information.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <UserIcon className="h-6 w-6" />
+            My Profile
+          </h1>
+          <p className="text-muted-foreground">
+            View and manage your personal information.
+          </p>
+        </div>
+        <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
+          {refreshing ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-2 h-4 w-4" />
+          )}
+          Refresh
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Profile Card */}
         <Card className="lg:col-span-1">
           <CardContent className="flex flex-col items-center gap-4 pt-6">
             <Avatar className="h-20 w-20">
+              <AvatarImage src={user.avatar_url ?? undefined} alt={user.name} />
               <AvatarFallback className="bg-primary text-primary-foreground text-xl font-bold">
                 {initials}
               </AvatarFallback>
@@ -298,8 +367,8 @@ export default function ProfilePage() {
               <h2 className="text-lg font-semibold">{user.name}</h2>
               <p className="text-sm text-muted-foreground">{user.email}</p>
             </div>
-            <Badge className={getRoleBadgeColor(user.role)}>
-              {getRoleLabel(user.role)}
+            <Badge className={getRoleBadgeColor(user.role.name)}>
+              {getRoleLabel(user.role.name)}
             </Badge>
             <Button
               variant="outline"
@@ -313,18 +382,14 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Details Cards */}
         <div className="flex flex-col gap-6 lg:col-span-2">
-          {/* Account Details */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Mail className="h-5 w-5" />
                 Account Details
               </CardTitle>
-              <CardDescription>
-                Your personal information and account settings.
-              </CardDescription>
+              <CardDescription>Your personal information and account settings.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -344,115 +409,67 @@ export default function ProfilePage() {
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Role
                   </span>
-                  <span className="text-sm font-medium">
-                    {getRoleLabel(user.role)}
-                  </span>
+                  <span className="text-sm font-medium">{getRoleLabel(user.role.name)}</span>
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Member Since
+                    Avatar
                   </span>
-                  <span className="text-sm font-medium">
-                    {new Date(user.created_at).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
+                  <span className="text-sm text-muted-foreground">
+                    {user.avatar_url ? "Selected avatar" : "No avatar selected"}
                   </span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Permissions Card */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
                 Permissions
               </CardTitle>
-              <CardDescription>
-                Your access rights within the application.
-              </CardDescription>
+              <CardDescription>Your access rights within the application.</CardDescription>
             </CardHeader>
             <CardContent>
-              {user.role === "admin" ? (
+              {user.role.name === "admin" ? (
                 <div className="flex items-center gap-2 rounded-md bg-success/10 p-3">
                   <CheckCircle className="h-4 w-4 text-success" />
                   <span className="text-sm text-success">
                     As an Admin, you have full access to all features.
                   </span>
                 </div>
-              ) : user.permissions && user.permissions.length > 0 ? (
+              ) : user.role.permissions && user.role.permissions.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {user.permissions.map((perm) => (
+                  {user.role.permissions.map((perm) => (
                     <Badge
-                      key={perm}
+                      key={perm.id}
                       variant="outline"
                       className="flex items-center gap-1.5 px-3 py-1.5"
                     >
                       <Key className="h-3 w-3" />
-                      {getPermissionLabel(perm)}
+                      {getPermissionLabel(perm.name)}
                     </Badge>
                   ))}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  No specific permissions assigned. Contact an administrator to
-                  request access.
+                  No specific permissions assigned. Contact an administrator.
                 </p>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Security Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Key className="h-5 w-5" />
-                Security
-              </CardTitle>
-              <CardDescription>
-                Manage your password and account security.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between rounded-md border p-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm font-medium">Password</span>
-                  <span className="text-xs text-muted-foreground">
-                    Last updated:{" "}
-                    {new Date(user.updated_at).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditOpen(true)}
-                >
-                  Change Password
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Edit Dialog */}
       {editOpen && (
         <EditProfileDialog
           open={editOpen}
           onClose={() => setEditOpen(false)}
           currentName={user.name}
           currentEmail={user.email}
-          onSuccess={() => {
-            // Reload user data -- simplest approach: reload the page
-            window.location.reload();
-          }}
+          currentAvatar={user.avatar_url}
+          onSuccess={refreshUser}
         />
       )}
     </div>
