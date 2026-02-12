@@ -16,6 +16,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   hasPermission: (perm: Permission) => boolean;
   hasAnyPermission: (...perms: Permission[]) => boolean;
 }
@@ -49,6 +50,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    if (!getApiUrl()) return;
+    const res = await authApi.me();
+    setUser(res.user ?? (res as unknown as User));
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await authApi.logout();
@@ -80,7 +87,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, logout, hasPermission, hasAnyPermission }}
+      value={{
+        user,
+        loading,
+        login,
+        logout,
+        refreshUser,
+        hasPermission,
+        hasAnyPermission,
+      }}
     >
       {children}
     </AuthContext.Provider>
