@@ -15,7 +15,7 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Project Manager - All-in-One Business Management",
+  title: "CafeOps Suite - Small Cafe Operations Platform",
   description:
     "Manage your staff, inventory, POS, orders, and reports in one place.",
   icons: {

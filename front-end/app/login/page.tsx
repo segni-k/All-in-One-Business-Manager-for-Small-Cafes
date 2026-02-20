@@ -50,10 +50,10 @@ export default function LoginPage() {
             <LayoutDashboard className="h-6 w-6 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Project Manager
+            CafeOps Suite
           </h1>
           <p className="text-sm text-muted-foreground">
-            All-in-One Business Management
+            Small Cafe Operations Platform
           </p>
         </div>
 

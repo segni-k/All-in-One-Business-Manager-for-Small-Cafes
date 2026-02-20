@@ -57,3 +57,28 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## Deploy Backend On Render
+
+This repository now includes Render deployment files for the backend:
+
+- `backend-laravel/Dockerfile`
+- `backend-laravel/.dockerignore`
+- `backend-laravel/docker/entrypoint.sh`
+- `render.yaml` (in repo root)
+
+### Steps
+
+1. Push this repo to GitHub.
+2. In Render, create a new **Blueprint** and point it to this repository.
+3. Render will detect `render.yaml` and provision:
+   - `cafe-backend` (Docker web service)
+   - `cafe-backend-db` (PostgreSQL)
+4. After first deploy, set `APP_URL` to your backend URL in Render env vars.
+5. Keep `APP_KEY` set in Render env vars for stable encryption/session behavior.
+
+### Notes
+
+- Health check path is `/up` (Laravel built-in health route).
+- Migrations run automatically on startup because `RUN_MIGRATIONS=true` in `render.yaml`.
+- The app listens on Render's provided `PORT`.
