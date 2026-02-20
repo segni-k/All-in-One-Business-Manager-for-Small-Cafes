@@ -28,6 +28,7 @@ RUN apk add --no-cache \
         icu-dev \
         libzip-dev \
         oniguruma-dev \
+        postgresql-dev \
         unzip \
     && docker-php-ext-install \
         bcmath \
