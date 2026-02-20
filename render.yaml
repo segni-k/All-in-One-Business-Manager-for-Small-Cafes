@@ -16,44 +16,22 @@ services:
       - key: APP_DEBUG
         value: "false"
       - key: APP_URL
-        sync: false
+        value: https://all-in-one-business-manager-for-small.onrender.com
       - key: APP_KEY
         sync: false
       - key: DB_CONNECTION
         value: pgsql
-      - key: DB_HOST
-        fromDatabase:
-          name: cafe-backend-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: cafe-backend-db
-          property: port
-      - key: DB_DATABASE
-        fromDatabase:
-          name: cafe-backend-db
-          property: database
-      - key: DB_USERNAME
-        fromDatabase:
-          name: cafe-backend-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: cafe-backend-db
-          property: password
+      - key: DB_URL
+        sync: false
+      - key: DB_SSLMODE
+        value: require
       - key: SESSION_DRIVER
-        value: database
+        value: cookie
       - key: CACHE_STORE
-        value: database
+        value: file
       - key: QUEUE_CONNECTION
-        value: database
+        value: sync
       - key: LOG_CHANNEL
         value: stderr
       - key: RUN_MIGRATIONS
         value: "true"
-
-databases:
-  - name: cafe-backend-db
-    databaseName: cafe_manager
-    user: cafe_manager
-    plan: free
