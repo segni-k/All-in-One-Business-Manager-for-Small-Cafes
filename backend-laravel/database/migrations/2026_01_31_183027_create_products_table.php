@@ -14,10 +14,7 @@ return new class extends Migration
             // Core
             $table->string('name');
             $table->string('sku')->nullable()->unique(); // barcode / SKU
-            $table->foreignId('category_id')
-                ->nullable()
-                ->constrained()
-                ->nullOnDelete();
+            $table->foreignId('category_id')->nullable();
 
             // Pricing
             $table->decimal('price', 10, 2);

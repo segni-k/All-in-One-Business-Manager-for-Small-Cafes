@@ -2,6 +2,45 @@
 
 use Illuminate\Support\Str;
 
+$parsedDbUrl = null;
+$dbUrl = env('DB_URL');
+
+if (is_string($dbUrl) && $dbUrl !== '') {
+    $parsed = parse_url($dbUrl);
+
+    if (is_array($parsed)) {
+        $parsedDbUrl = $parsed;
+    }
+}
+
+$pgsqlHost = env('DB_HOST') ?: ($parsedDbUrl['host'] ?? '127.0.0.1');
+$pgsqlPort = env('DB_PORT') ?: (($parsedDbUrl['port'] ?? null) ? (string) $parsedDbUrl['port'] : '5432');
+$pgsqlDatabase = env('DB_DATABASE') ?: ltrim((string) ($parsedDbUrl['path'] ?? '/laravel'), '/');
+$pgsqlUsername = env('DB_USERNAME') ?: ($parsedDbUrl['user'] ?? 'root');
+$pgsqlPassword = env('DB_PASSWORD') ?: ($parsedDbUrl['pass'] ?? '');
+$neonEndpointId = env('DB_NEON_ENDPOINT_ID');
+
+if (! $neonEndpointId && is_string($pgsqlHost) && str_contains($pgsqlHost, '.neon.tech')) {
+    $hostLabel = explode('.', $pgsqlHost)[0] ?? '';
+
+    if (str_ends_with($hostLabel, '-pooler')) {
+        $hostLabel = substr($hostLabel, 0, -7);
+    }
+
+    if (str_starts_with($hostLabel, 'ep-')) {
+        $neonEndpointId = $hostLabel;
+    }
+}
+
+if (
+    is_string($pgsqlHost)
+    && str_contains($pgsqlHost, '.neon.tech')
+    && ! str_contains($pgsqlHost, ';options=')
+    && $neonEndpointId
+) {
+    $pgsqlHost .= ";options='endpoint={$neonEndpointId}'";
+}
+
 return [
 
     /*
@@ -85,17 +124,17 @@ return [
 
         'pgsql' => [
             'driver' => 'pgsql',
-            'url' => env('DB_URL'),
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '5432'),
-            'database' => env('DB_DATABASE', 'laravel'),
-            'username' => env('DB_USERNAME', 'root'),
-            'password' => env('DB_PASSWORD', ''),
+            'url' => null,
+            'host' => $pgsqlHost,
+            'port' => $pgsqlPort,
+            'database' => $pgsqlDatabase,
+            'username' => $pgsqlUsername,
+            'password' => $pgsqlPassword,
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
-            'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'sslmode' => env('DB_SSLMODE', 'require'),
         ],
 
         'sqlsrv' => [

@@ -10,10 +10,11 @@ class ExampleTest extends TestCase
     /**
      * A basic test example.
      */
-    public function test_the_application_returns_not_found_for_root_route(): void
+    public function test_the_application_returns_health_payload_for_root_route(): void
     {
         $response = $this->get('/');
 
-        $response->assertStatus(404);
+        $response->assertOk()
+            ->assertJsonStructure(['message', 'health', 'api']);
     }
 }
