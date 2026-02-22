@@ -35,7 +35,54 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
-import { profile as profileApi } from "@/lib/api";
+import * as api from "@/lib/api";
+
+async function updateProfileSafe(data: {
+  name?: string;
+  email?: string;
+  avatar_url?: string | null;
+  current_password?: string;
+  password?: string;
+  password_confirmation?: string;
+}) {
+  const profileModule = (api as {
+    profile?: {
+      update?: (payload: typeof data) => Promise<unknown>;
+    };
+  }).profile;
+
+  if (profileModule?.update) {
+    return profileModule.update(data);
+  }
+
+  const baseUrl = api.getApiUrl();
+  if (!baseUrl) {
+    throw new Error("API URL not set");
+  }
+
+  const token = typeof window === "undefined" ? null : localStorage.getItem("auth_token");
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${baseUrl}/me`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.message || "Failed to update profile");
+  }
+
+  return response.json().catch(() => null);
+}
 
 function getRoleLabel(role: string) {
   switch (role) {
@@ -152,7 +199,7 @@ function EditProfileDialog({
         return;
       }
 
-      await profileApi.update(payload);
+      await updateProfileSafe(payload);
       await onSuccess();
       toast.success("Profile updated successfully.");
       onClose();
