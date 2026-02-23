@@ -21,6 +21,7 @@ $pgsqlDatabase = env('DB_DATABASE') ?: ltrim((string) ($parsedDbUrl['path'] ?? '
 $pgsqlUsername = env('DB_USERNAME') ?: ($parsedDbUrl['user'] ?? 'root');
 $pgsqlPassword = env('DB_PASSWORD') ?: ($parsedDbUrl['pass'] ?? '');
 $neonEndpointId = env('DB_NEON_ENDPOINT_ID');
+$neonHostEndpointId = null;
 $pgsqlSslMode = env('DB_SSLMODE') ?: ($dbUrlQuery['sslmode'] ?? 'require');
 $pgsqlDsnOptions = env('DB_PG_OPTIONS');
 
@@ -28,16 +29,29 @@ if (! $pgsqlDsnOptions && isset($dbUrlQuery['options']) && is_string($dbUrlQuery
     $pgsqlDsnOptions = $dbUrlQuery['options'];
 }
 
-if (! $neonEndpointId && is_string($pgsqlHost) && str_contains($pgsqlHost, '.neon.tech')) {
+if (is_string($pgsqlHost) && str_contains($pgsqlHost, '.neon.tech')) {
     $hostLabel = explode('.', $pgsqlHost)[0] ?? '';
 
-    if (str_ends_with($hostLabel, '-pooler')) {
-        $hostLabel = substr($hostLabel, 0, -7);
-    }
-
     if (str_starts_with($hostLabel, 'ep-')) {
-        $neonEndpointId = $hostLabel;
+        $neonHostEndpointId = $hostLabel;
     }
+}
+
+if (! $neonEndpointId && $neonHostEndpointId) {
+    $neonEndpointId = $neonHostEndpointId;
+}
+
+if ($neonHostEndpointId && $neonEndpointId && $neonEndpointId !== $neonHostEndpointId) {
+    $neonEndpointId = $neonHostEndpointId;
+}
+
+if ($pgsqlDsnOptions && $neonHostEndpointId && str_contains($pgsqlDsnOptions, 'endpoint=')) {
+    $pgsqlDsnOptions = preg_replace(
+        '/endpoint=[^\\s;]+/',
+        "endpoint={$neonHostEndpointId}",
+        $pgsqlDsnOptions,
+        1
+    ) ?: $pgsqlDsnOptions;
 }
 
 if (! $pgsqlDsnOptions && $neonEndpointId) {
