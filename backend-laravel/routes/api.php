@@ -9,6 +9,14 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\POS\ProductController;
 
+Route::get('/', function () {
+    return response()->json([
+        'message' => 'CafeOps API is running',
+        'login' => '/api/login',
+        'health' => '/up',
+    ]);
+});
+
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {

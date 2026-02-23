@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Auth;
 
-use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\QueryException;
 use Illuminate\Validation\ValidationException;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -20,11 +20,7 @@ class AuthController extends Controller
         ]);
 
         try {
-            if (!Auth::attempt($request->only('email', 'password'))) {
-                throw ValidationException::withMessages([
-                    'email' => ['Invalid credentials']
-                ]);
-            }
+            $user = User::where('email', $request->email)->first();
         } catch (QueryException $exception) {
             report($exception);
             return response()->json([
@@ -32,7 +28,11 @@ class AuthController extends Controller
             ], 500);
         }
 
-        $user = Auth::user();
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            throw ValidationException::withMessages([
+                'email' => ['Invalid credentials']
+            ]);
+        }
 
         if (!$user->is_active) {
             abort(403, 'Account disabled');
@@ -105,7 +105,7 @@ class AuthController extends Controller
         ]);
     }
 
-    private function hydrateUserForResponse($user)
+    private function hydrateUserForResponse(User $user): User
     {
         if (!Schema::hasTable('staff_roles')) {
             return $user;
