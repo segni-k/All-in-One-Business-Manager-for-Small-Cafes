@@ -16,4 +16,8 @@ if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
   php artisan migrate --force --no-interaction
 fi
 
+if [ "${RUN_SEEDERS:-false}" = "true" ]; then
+  php artisan db:seed --force --no-interaction
+fi
+
 exec php artisan serve --host=0.0.0.0 --port="${PORT:-10000}"

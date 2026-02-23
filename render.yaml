@@ -35,3 +35,11 @@ services:
         value: stderr
       - key: RUN_MIGRATIONS
         value: "true"
+      - key: RUN_SEEDERS
+        value: "true"
+      - key: ADMIN_EMAIL
+        value: admin@system.local
+      - key: ADMIN_PASSWORD
+        value: password
+      - key: ADMIN_NAME
+        value: System Admin
