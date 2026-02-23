@@ -3,13 +3,15 @@
 use Illuminate\Support\Str;
 
 $parsedDbUrl = null;
-$dbUrl = env('DB_URL');
+$dbUrl = env('DB_URL') ?: env('DATABASE_URL');
+$dbUrlQuery = [];
 
 if (is_string($dbUrl) && $dbUrl !== '') {
     $parsed = parse_url($dbUrl);
 
     if (is_array($parsed)) {
         $parsedDbUrl = $parsed;
+        parse_str((string) ($parsed['query'] ?? ''), $dbUrlQuery);
     }
 }
 
@@ -19,6 +21,12 @@ $pgsqlDatabase = env('DB_DATABASE') ?: ltrim((string) ($parsedDbUrl['path'] ?? '
 $pgsqlUsername = env('DB_USERNAME') ?: ($parsedDbUrl['user'] ?? 'root');
 $pgsqlPassword = env('DB_PASSWORD') ?: ($parsedDbUrl['pass'] ?? '');
 $neonEndpointId = env('DB_NEON_ENDPOINT_ID');
+$pgsqlSslMode = env('DB_SSLMODE') ?: ($dbUrlQuery['sslmode'] ?? 'require');
+$pgsqlDsnOptions = env('DB_PG_OPTIONS');
+
+if (! $pgsqlDsnOptions && isset($dbUrlQuery['options']) && is_string($dbUrlQuery['options'])) {
+    $pgsqlDsnOptions = $dbUrlQuery['options'];
+}
 
 if (! $neonEndpointId && is_string($pgsqlHost) && str_contains($pgsqlHost, '.neon.tech')) {
     $hostLabel = explode('.', $pgsqlHost)[0] ?? '';
@@ -32,13 +40,17 @@ if (! $neonEndpointId && is_string($pgsqlHost) && str_contains($pgsqlHost, '.neo
     }
 }
 
+if (! $pgsqlDsnOptions && $neonEndpointId) {
+    $pgsqlDsnOptions = "endpoint={$neonEndpointId}";
+}
+
 if (
     is_string($pgsqlHost)
     && str_contains($pgsqlHost, '.neon.tech')
     && ! str_contains($pgsqlHost, ';options=')
-    && $neonEndpointId
+    && $pgsqlDsnOptions
 ) {
-    $pgsqlHost .= ";options='endpoint={$neonEndpointId}'";
+    $pgsqlHost .= ";options='{$pgsqlDsnOptions}'";
 }
 
 return [
@@ -134,7 +146,7 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
-            'sslmode' => env('DB_SSLMODE', 'require'),
+            'sslmode' => $pgsqlSslMode,
         ],
 
         'sqlsrv' => [

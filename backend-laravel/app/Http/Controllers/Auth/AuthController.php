@@ -24,7 +24,7 @@ class AuthController extends Controller
         } catch (QueryException $exception) {
             report($exception);
             return response()->json([
-                'message' => 'Login failed due to a database configuration issue.',
+                'message' => 'Login failed due to a database configuration issue. Check DB_URL or DATABASE_URL and run migrations.',
             ], 500);
         }
 
