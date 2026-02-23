@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\QueryException;
 use Illuminate\Validation\ValidationException;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -18,10 +19,17 @@ class AuthController extends Controller
             'password' => 'required'
         ]);
 
-        if (!Auth::attempt($request->only('email', 'password'))) {
-            throw ValidationException::withMessages([
-                'email' => ['Invalid credentials']
-            ]);
+        try {
+            if (!Auth::attempt($request->only('email', 'password'))) {
+                throw ValidationException::withMessages([
+                    'email' => ['Invalid credentials']
+                ]);
+            }
+        } catch (QueryException $exception) {
+            report($exception);
+            return response()->json([
+                'message' => 'Login failed due to a database configuration issue.',
+            ], 500);
         }
 
         $user = Auth::user();
@@ -30,10 +38,19 @@ class AuthController extends Controller
             abort(403, 'Account disabled');
         }
 
+        try {
+            $token = $user->createToken('auth')->plainTextToken;
+        } catch (QueryException $exception) {
+            report($exception);
+            return response()->json([
+                'message' => 'Login failed because access token storage is unavailable. Run migrations and try again.',
+            ], 500);
+        }
+
         /** @var \App\Models\User $user */
         return response()->json([
-            'user' => $user->load('role.permissions'),
-            'token' => $user->createToken('auth')->plainTextToken
+            'user' => $this->hydrateUserForResponse($user),
+            'token' => $token,
         ]);
     }
 
@@ -45,7 +62,7 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return $request->user()->load('role.permissions');
+        return $this->hydrateUserForResponse($request->user());
     }
 
     public function updateProfile(Request $request)
@@ -84,7 +101,22 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Profile updated successfully',
-            'user' => $user->fresh()->load('role.permissions'),
+            'user' => $this->hydrateUserForResponse($user->fresh()),
         ]);
+    }
+
+    private function hydrateUserForResponse($user)
+    {
+        if (!Schema::hasTable('staff_roles')) {
+            return $user;
+        }
+
+        $relations = ['role'];
+
+        if (Schema::hasTable('permissions') && Schema::hasTable('role_permission')) {
+            $relations[] = 'role.permissions';
+        }
+
+        return $user->loadMissing($relations);
     }
 }
