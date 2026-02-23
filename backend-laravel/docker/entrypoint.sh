@@ -8,6 +8,8 @@ if [ -z "${APP_KEY:-}" ]; then
   php artisan key:generate --force --no-interaction
 fi
 
+# Avoid stale route/config cache between deploys.
+php artisan optimize:clear --no-interaction
 php artisan config:cache
 
 if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
