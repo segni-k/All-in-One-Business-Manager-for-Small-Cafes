@@ -20,6 +20,8 @@
       }
     ],
     "paths": {
+      "@/components/theme-toggle": ["./components/theme-toggle.tsx"],
+      "@/hooks/use-mobile": ["./hooks/use-mobile.tsx"],
       "@/*": ["./*"]
     }
   },
