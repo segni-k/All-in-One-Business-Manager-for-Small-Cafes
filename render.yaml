@@ -6,7 +6,7 @@ services:
     region: oregon
     dockerContext: ./backend-laravel
     dockerfilePath: ./backend-laravel/Dockerfile
-    healthCheckPath: /up
+    healthCheckPath: /api
     autoDeploy: true
     envVars:
       - key: APP_NAME
