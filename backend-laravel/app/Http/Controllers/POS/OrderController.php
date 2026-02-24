@@ -5,6 +5,7 @@ namespace App\Http\Controllers\POS;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\POSService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
 class OrderController extends Controller
@@ -21,23 +22,28 @@ class OrderController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Order::with('items.product', 'user')->latest();
+        try {
+            $query = Order::with('items.product', 'user')->latest();
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
+
+            if ($request->filled('payment_status')) {
+                $query->where('payment_status', $request->payment_status);
+            }
+
+            if ($request->filled('payment_method')) {
+                $query->where('payment_method', $request->payment_method);
+            }
+
+            return response()->json(
+                $query->paginate(25)
+            );
+        } catch (QueryException $exception) {
+            report($exception);
+            return $this->dbUnavailableResponse();
         }
-
-        if ($request->filled('payment_status')) {
-            $query->where('payment_status', $request->payment_status);
-        }
-
-        if ($request->filled('payment_method')) {
-            $query->where('payment_method', $request->payment_method);
-        }
-
-        return response()->json(
-            $query->paginate(25)
-        );
     }
 
     /**
@@ -45,9 +51,14 @@ class OrderController extends Controller
      */
     public function show($id)
     {
-        $order = Order::with('items.product', 'user')->findOrFail($id);
+        try {
+            $order = Order::with('items.product', 'user')->findOrFail($id);
 
-        return response()->json($order);
+            return response()->json($order);
+        } catch (QueryException $exception) {
+            report($exception);
+            return $this->dbUnavailableResponse();
+        }
     }
 
     /**
@@ -55,21 +66,26 @@ class OrderController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'discount' => 'nullable|numeric|min:0',
-            'payment_method' => 'required|in:cash,card,mobile_money',
-            'status' => 'sometimes|in:pending,paid',
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity' => 'required|integer|min:1',
-        ]);
+        try {
+            $validated = $request->validate([
+                'discount' => 'nullable|numeric|min:0',
+                'payment_method' => 'required|in:cash,card,mobile_money',
+                'status' => 'sometimes|in:pending,paid',
+                'items' => 'required|array|min:1',
+                'items.*.product_id' => 'required|exists:products,id',
+                'items.*.quantity' => 'required|integer|min:1',
+            ]);
 
-        $order = $this->posService->createOrder(
-            $validated,
-            $request->user() // ✅ FIX
-        );
+            $order = $this->posService->createOrder(
+                $validated,
+                $request->user()
+            );
 
-        return response()->json($order, 201);
+            return response()->json($order, 201);
+        } catch (QueryException $exception) {
+            report($exception);
+            return $this->dbUnavailableResponse();
+        }
     }
 
     /**
@@ -77,24 +93,29 @@ class OrderController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $validated = $request->validate([
-            'discount' => 'nullable|numeric|min:0',
-            'payment_method' => 'required|in:cash,card,mobile_money',
-            'status' => 'sometimes|in:pending,paid',
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity' => 'required|integer|min:1',
-        ]);
+        try {
+            $validated = $request->validate([
+                'discount' => 'nullable|numeric|min:0',
+                'payment_method' => 'required|in:cash,card,mobile_money',
+                'status' => 'sometimes|in:pending,paid',
+                'items' => 'required|array|min:1',
+                'items.*.product_id' => 'required|exists:products,id',
+                'items.*.quantity' => 'required|integer|min:1',
+            ]);
 
-        $order = Order::with('items.product')->findOrFail($id);
+            $order = Order::with('items.product')->findOrFail($id);
 
-        $updatedOrder = $this->posService->updateOrder(
-            $order,
-            $validated,
-            $request->user()
-        );
+            $updatedOrder = $this->posService->updateOrder(
+                $order,
+                $validated,
+                $request->user()
+            );
 
-        return response()->json($updatedOrder);
+            return response()->json($updatedOrder);
+        } catch (QueryException $exception) {
+            report($exception);
+            return $this->dbUnavailableResponse();
+        }
     }
 
     /**
@@ -102,14 +123,19 @@ class OrderController extends Controller
      */
     public function complete(Request $request, $id)
     {
-        $order = Order::with('items.product')->findOrFail($id);
+        try {
+            $order = Order::with('items.product')->findOrFail($id);
 
-        $completedOrder = $this->posService->completeOrder(
-            $order,
-            $request->user()
-        );
+            $completedOrder = $this->posService->completeOrder(
+                $order,
+                $request->user()
+            );
 
-        return response()->json($completedOrder);
+            return response()->json($completedOrder);
+        } catch (QueryException $exception) {
+            report($exception);
+            return $this->dbUnavailableResponse();
+        }
     }
 
     /**
@@ -117,13 +143,25 @@ class OrderController extends Controller
      */
     public function cancel(Request $request, $id)
     {
-        $order = Order::with('items.product')->findOrFail($id);
+        try {
+            $order = Order::with('items.product')->findOrFail($id);
 
-        $cancelledOrder = $this->posService->cancelOrder(
-            $order,
-            $request->user()
-        );
+            $cancelledOrder = $this->posService->cancelOrder(
+                $order,
+                $request->user()
+            );
 
-        return response()->json($cancelledOrder);
+            return response()->json($cancelledOrder);
+        } catch (QueryException $exception) {
+            report($exception);
+            return $this->dbUnavailableResponse();
+        }
+    }
+
+    private function dbUnavailableResponse()
+    {
+        return response()->json([
+            'message' => 'Orders are temporarily unavailable due to a database configuration/migration issue.',
+        ], 503);
     }
 }

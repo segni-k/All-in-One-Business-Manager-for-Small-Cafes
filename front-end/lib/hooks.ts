@@ -37,6 +37,17 @@ function normalizeReportItems<T extends object>(
   return [payload];
 }
 
+function toDisplayString(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return fallback;
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 // ==============================
 // ---- Dashboard ----
 export function useDashboard() {
@@ -62,6 +73,8 @@ export function useNotifications(options?: { enabled?: boolean }) {
       return {
         data: (res.data ?? []).map((item) => ({
           ...item,
+          type: toDisplayString(item.type, "notification"),
+          message: toDisplayString(item.message, "Notification"),
           data: item.data ?? null,
           read_at: item.read_at ?? null,
         })),

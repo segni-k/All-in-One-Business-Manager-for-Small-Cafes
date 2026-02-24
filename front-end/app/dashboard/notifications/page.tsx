@@ -165,7 +165,11 @@ export default function NotificationsPage() {
                         <span className="h-2 w-2 rounded-full bg-yellow-400" />
                       )}
                     </div>
-                    <p className="text-sm">{notification.message}</p>
+                    <p className="text-sm">
+                      {typeof notification.message === "string"
+                        ? notification.message
+                        : JSON.stringify(notification.message)}
+                    </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {format(
                         new Date(notification.created_at),

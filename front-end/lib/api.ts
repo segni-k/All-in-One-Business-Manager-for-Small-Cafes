@@ -16,7 +16,19 @@ import {
   PaginatedResponse,
 } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+function normalizeApiUrl(rawUrl: string | undefined): string {
+  const cleaned = (rawUrl ?? "").replace(/^\uFEFF/, "").trim();
+
+  if (!cleaned) return "";
+
+  const withProtocol = /^https?:\/\//i.test(cleaned)
+    ? cleaned
+    : `https://${cleaned}`;
+
+  return withProtocol.replace(/\/+$/, "");
+}
+
+const API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL);
 
 export function getApiUrl() {
   return API_URL;
@@ -57,7 +69,16 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
+  } catch (error) {
+    throw new ApiError(
+      "Network error while contacting API. Check NEXT_PUBLIC_API_URL and backend CORS settings.",
+      0,
+      error
+    );
+  }
 
   if (!res.ok) {
     const data = await res.json().catch(() => null);
@@ -65,7 +86,14 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       removeToken();
       window.location.href = "/login";
     }
-    throw new ApiError(data?.message || "Request failed", res.status, data);
+    const message =
+      typeof data?.message === "string"
+        ? data.message
+        : data?.message && typeof data.message === "object"
+          ? JSON.stringify(data.message)
+          : "Request failed";
+
+    throw new ApiError(message, res.status, data);
   }
 
   if (res.status === 204) return null as T;

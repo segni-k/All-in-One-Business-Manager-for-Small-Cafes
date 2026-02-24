@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -74,7 +75,12 @@ class User extends Authenticatable
     */
     public function hasPermission(string $permission): bool
     {
-        return $this->role?->permissions?->pluck('name')->contains($permission) ?? false;
+        try {
+            return $this->role?->permissions?->pluck('name')->contains($permission) ?? false;
+        } catch (QueryException $exception) {
+            report($exception);
+            return false;
+        }
     }
 
     public function seenNotifications(): BelongsToMany

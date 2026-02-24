@@ -12,11 +12,13 @@ fi
 php artisan optimize:clear --no-interaction
 php artisan config:cache
 
-if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
+if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+  echo "Running database migrations..."
   php artisan migrate --force --no-interaction
 fi
 
 if [ "${RUN_SEEDERS:-false}" = "true" ]; then
+  echo "Running database seeders..."
   php artisan db:seed --force --no-interaction
 fi
 
