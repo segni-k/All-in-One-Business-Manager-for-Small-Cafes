@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   BarChart3,
   AlertTriangle,
@@ -172,7 +172,14 @@ function ReportError({
 
 function DailyTab() {
   const { data, isLoading, error, mutate } = useDailyReports();
-  const reports = data ?? [];
+  const reports = useMemo(() => data ?? [], [data]);
+  const { totalSales, totalProfit, totalOrders } = useMemo(() => {
+    return {
+      totalSales: reports.reduce((sum, r) => sum + r.total_sales, 0),
+      totalProfit: reports.reduce((sum, r) => sum + r.profit, 0),
+      totalOrders: reports.reduce((sum, r) => sum + r.order_count, 0),
+    };
+  }, [reports]);
 
   if (isLoading) return <ReportLoading />;
   if (error) return <ReportError message="Failed to load daily reports." onRetry={mutate} />;
@@ -185,9 +192,6 @@ function DailyTab() {
     );
   }
 
-  const totalSales = reports.reduce((sum, r) => sum + r.total_sales, 0);
-  const totalProfit = reports.reduce((sum, r) => sum + r.profit, 0);
-  const totalOrders = reports.reduce((sum, r) => sum + r.order_count, 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -223,14 +227,18 @@ function DailyTab() {
 
 function MonthlyTab() {
   const { data, isLoading, error, mutate } = useMonthlyReports();
-  const reports = data ?? [];
+  const reports = useMemo(() => data ?? [], [data]);
+  const { totalSales, totalProfit, totalOrders } = useMemo(() => {
+    return {
+      totalSales: reports.reduce((sum, r) => sum + r.total_sales, 0),
+      totalProfit: reports.reduce((sum, r) => sum + r.profit, 0),
+      totalOrders: reports.reduce((sum, r) => sum + r.order_count, 0),
+    };
+  }, [reports]);
 
   if (isLoading) return <ReportLoading />;
   if (error) return <ReportError message="Failed to load monthly reports." onRetry={mutate} />;
 
-  const totalSales = reports.reduce((sum, r) => sum + r.total_sales, 0);
-  const totalProfit = reports.reduce((sum, r) => sum + r.profit, 0);
-  const totalOrders = reports.reduce((sum, r) => sum + r.order_count, 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -262,14 +270,18 @@ function MonthlyTab() {
 
 function YearlyTab() {
   const { data, isLoading, error, mutate } = useYearlyReports();
-  const reports = data ?? [];
+  const reports = useMemo(() => data ?? [], [data]);
+  const { totalSales, totalProfit, totalOrders } = useMemo(() => {
+    return {
+      totalSales: reports.reduce((sum, r) => sum + r.total_sales, 0),
+      totalProfit: reports.reduce((sum, r) => sum + r.profit, 0),
+      totalOrders: reports.reduce((sum, r) => sum + r.order_count, 0),
+    };
+  }, [reports]);
 
   if (isLoading) return <ReportLoading />;
   if (error) return <ReportError message="Failed to load yearly reports." onRetry={mutate} />;
 
-  const totalSales = reports.reduce((sum, r) => sum + r.total_sales, 0);
-  const totalProfit = reports.reduce((sum, r) => sum + r.profit, 0);
-  const totalOrders = reports.reduce((sum, r) => sum + r.order_count, 0);
 
   return (
     <div className="flex flex-col gap-6">

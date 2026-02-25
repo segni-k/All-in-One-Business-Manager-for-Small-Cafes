@@ -69,10 +69,23 @@ export default function NotificationsPage() {
 
   async function markSeen(id: number, readAt: string | null) {
     if (readAt) return;
+    const optimisticTimestamp = new Date().toISOString();
+    mutate(
+      (current) => {
+        if (!current) return current;
+        const nextData = current.data.map((item) =>
+          item.id === id ? { ...item, read_at: optimisticTimestamp } : item
+        );
+        const nextUnseen = Math.max(0, current.unseen_count - 1);
+        return { ...current, data: nextData, unseen_count: nextUnseen };
+      },
+      { revalidate: false }
+    );
     try {
       await notificationsApi.markSeen(id);
       mutate();
     } catch (err: unknown) {
+      mutate();
       toast.error(err instanceof Error ? err.message : "Failed to update notification.");
     }
   }

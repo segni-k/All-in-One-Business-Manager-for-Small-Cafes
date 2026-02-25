@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Plus,
@@ -315,28 +315,15 @@ function StaffTableSkeleton() {
 // ---- Main Page ----
 export default function StaffPage() {
   const { hasPermission } = useAuth();
-  const { data, isLoading, error, mutate } = useStaff();
+  const canManageStaff = hasPermission("manage_staff");
+  const { data, isLoading, error, mutate } = useStaff({ enabled: canManageStaff });
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<StaffMember | null>(null);
   const [deleting, setDeleting] = useState<StaffMember | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  if (!hasPermission("manage_staff")) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 py-20">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
-          <AlertTriangle className="h-6 w-6 text-destructive" />
-        </div>
-        <p className="text-sm font-medium text-foreground">Access Denied</p>
-        <p className="text-sm text-muted-foreground">
-          You do not have permission to manage staff.
-        </p>
-      </div>
-    );
-  }
-
-  async function handleDelete() {
+  const handleDelete = useCallback(async () => {
     if (!deleting) return;
     setDeleteLoading(true);
     try {
@@ -351,20 +338,37 @@ export default function StaffPage() {
       setDeleteLoading(false);
       setDeleting(null);
     }
+  }, [deleting, mutate]);
+
+  const staffList = useMemo(() => data ?? [], [data]);
+  const filteredStaff = useMemo(() => {
+    if (!searchQuery) return staffList;
+    const query = searchQuery.toLowerCase();
+    return staffList.filter(
+      (m) =>
+        m.name.toLowerCase().includes(query) ||
+        m.email.toLowerCase().includes(query) ||
+        m.role?.name?.toLowerCase().includes(query)
+    );
+  }, [searchQuery, staffList]);
+  const activeCount = useMemo(
+    () => staffList.filter((m) => m.status === "active").length,
+    [staffList]
+  );
+
+  if (!canManageStaff) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-20">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+          <AlertTriangle className="h-6 w-6 text-destructive" />
+        </div>
+        <p className="text-sm font-medium text-foreground">Access Denied</p>
+        <p className="text-sm text-muted-foreground">
+          You do not have permission to manage staff.
+        </p>
+      </div>
+    );
   }
-
-  const staffList = data ?? [];
-
-  const filteredStaff = searchQuery
-    ? staffList.filter(
-        (m) =>
-          m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          m.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          m.role?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : staffList;
-
-  const activeCount = staffList.filter((m) => m.status === "active").length;
 
   return (
     <div className="flex flex-col gap-6">

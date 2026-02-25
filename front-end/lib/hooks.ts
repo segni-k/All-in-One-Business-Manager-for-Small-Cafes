@@ -93,9 +93,11 @@ export function useNotifications(options?: { enabled?: boolean }) {
 
 // ==============================
 // ---- Staff ----
-export function useStaff() {
+export function useStaff(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true;
+
   return useSWR<StaffMember[]>(
-    getApiUrl() ? "staff" : null,
+    getApiUrl() && enabled ? "staff" : null,
     async () => {
       const res = await staff.list();
       const staffList = normalizeCollection(res);

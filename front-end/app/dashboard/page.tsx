@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import {
   DollarSign,
   ShoppingCart,
@@ -315,6 +315,16 @@ export default function DashboardPage() {
   const apiConfigured = !!getApiUrl();
   const { data, isLoading, error, mutate } = useDashboard();
   const d = data;
+  const trends = useMemo(() => {
+    const raw = d?.sales_profit_trends ?? d?.daily_trends ?? [];
+    return raw.map((item) => ({
+      ...item,
+      order_count:
+        item.order_count ??
+        (item as { orders_count?: number }).orders_count ??
+        0,
+    }));
+  }, [d]);
 
   if (!apiConfigured) return <ApiNotConfigured />;
   if (isLoading) return <DashboardSkeleton />;
@@ -353,7 +363,6 @@ export default function DashboardPage() {
   const profit = d?.daily_profit_loss?.profit ?? 0;
   const monthlyProfit = d?.monthly_profit_loss?.profit ?? 0;
   const yearlyProfit = d?.yearly_profit_loss?.profit ?? 0;
-  const trends = d?.sales_profit_trends ?? d?.daily_trends ?? [];
 
   return (
     <div className="flex flex-col gap-6">
