@@ -140,7 +140,7 @@ export default function NotificationsPage() {
                 <Bell className="h-6 w-6 text-muted-foreground" />
               </div>
               <p className="text-sm text-muted-foreground">
-                No notifications yet. You're all caught up.
+                No notifications yet. You&apos;re all caught up.
               </p>
             </div>
           ) : (

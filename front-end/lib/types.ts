@@ -78,6 +78,8 @@ export interface Product {
   low_stock_threshold?: number;
   status?: ProductStatus;
   is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
   deleted_at?: string | null;
 
   // ✅ FIX: backend sometimes returns string, sometimes object

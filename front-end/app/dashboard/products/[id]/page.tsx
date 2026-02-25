@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   Package,
   AlertTriangle,
-  Loader2,
   Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -86,20 +85,19 @@ export default function ProductProfilePage() {
   const params = useParams();
   const router = useRouter();
   const productId = Number(params.id);
+  const invalidProductId = !productId || Number.isNaN(productId);
 
   const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(!invalidProductId);
+  const [error, setError] = useState(
+    invalidProductId ? "Invalid product ID." : ""
+  );
 
   useEffect(() => {
-    if (!productId || Number.isNaN(productId)) {
-      setError("Invalid product ID.");
-      setLoading(false);
+    if (invalidProductId) {
       return;
     }
 
-    setLoading(true);
-    setError("");
     productsApi
       .show(productId)
       .then((res) => {
@@ -111,7 +109,7 @@ export default function ProductProfilePage() {
         );
       })
       .finally(() => setLoading(false));
-  }, [productId]);
+  }, [invalidProductId, productId]);
 
   if (loading) return <ProfileSkeleton />;
 
@@ -194,8 +192,8 @@ export default function ProductProfilePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             {product.image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={product.image_url}
                 alt={product.name}
@@ -282,10 +280,10 @@ export default function ProductProfilePage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-3 sm:flex-row sm:gap-12">
             <DetailRow label="Created">
-              {formatDate(product.created_at)}
+              {product.created_at ? formatDate(product.created_at) : "\u2014"}
             </DetailRow>
             <DetailRow label="Updated">
-              {formatDate(product.updated_at)}
+              {product.updated_at ? formatDate(product.updated_at) : "\u2014"}
             </DetailRow>
             {product.deleted_at && (
               <DetailRow label="Deleted">
