@@ -29,6 +29,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -39,9 +46,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
-import { useProducts } from "@/lib/hooks";
+import { useInventoryTransactions, useProducts } from "@/lib/hooks";
 import { inventory as inventoryApi } from "@/lib/api";
-import type { Product } from "@/lib/types";
+import type { InventoryTransactionType, Product } from "@/lib/types";
 
 function StockSkeleton() {
   return (
@@ -191,6 +198,8 @@ export default function InventoryPage() {
   const [page, setPage] = useState(1);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [dialogMode, setDialogMode] = useState<"restock" | "adjust" | null>(null);
+  const [txType, setTxType] = useState<InventoryTransactionType | "all">("all");
+  const [txProductId, setTxProductId] = useState<string>("all");
 
   const { data, isLoading, error, mutate } = useProducts({
     page,
@@ -198,12 +207,29 @@ export default function InventoryPage() {
     include_inactive: true,
   });
 
+  const txParams = useMemo(() => {
+    return {
+      product_id: txProductId === "all" ? undefined : Number(txProductId),
+      type: txType === "all" ? undefined : txType,
+      per_page: 20,
+    };
+  }, [txProductId, txType]);
+
+  const {
+    data: txData,
+    isLoading: txLoading,
+    error: txError,
+    mutate: txMutate,
+  } = useInventoryTransactions({ ...txParams, enabled: canManageInventory });
+
   const products = useMemo(() => data?.data ?? [], [data]);
 
   const lowStock = useMemo(
     () => products.filter((p) => p.stock <= (p.low_stock_threshold ?? 10)),
     [products]
   );
+
+  const transactions = useMemo(() => txData?.data ?? [], [txData]);
 
   if (!canManageInventory) {
     return (
@@ -347,6 +373,115 @@ export default function InventoryPage() {
                       </TableRow>
                     );
                   })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Inventory Activity
+              </CardTitle>
+              <CardDescription>Recent stock movements and adjustments.</CardDescription>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Select value={txType} onValueChange={(value) => setTxType(value as InventoryTransactionType | "all")}
+              >
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  <SelectItem value="sale">Sale</SelectItem>
+                  <SelectItem value="restock">Restock</SelectItem>
+                  <SelectItem value="adjustment">Adjustment</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={txProductId} onValueChange={setTxProductId}>
+                <SelectTrigger className="w-full sm:w-56">
+                  <SelectValue placeholder="All products" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All products</SelectItem>
+                  {products.map((product) => (
+                    <SelectItem key={product.id} value={String(product.id)}>
+                      {product.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" onClick={() => txMutate()}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {txLoading ? (
+            <StockSkeleton />
+          ) : txError ? (
+            <div className="flex flex-col items-center gap-3 py-12">
+              <AlertTriangle className="h-6 w-6 text-destructive" />
+              <p className="text-sm text-muted-foreground">
+                Failed to load inventory activity.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => txMutate()}>
+                Retry
+              </Button>
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-12">
+              <Package className="h-8 w-8 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">
+                No inventory activity recorded yet.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead>Notes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((tx) => (
+                    <TableRow key={tx.id}>
+                      <TableCell className="text-muted-foreground">
+                        {new Date(tx.created_at).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {tx.product?.name ?? `#${tx.product_id}`}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">
+                          {tx.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {tx.type === "sale" ? "-" : "+"}
+                        {tx.quantity}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {tx.user?.name ?? "System"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {tx.notes ?? "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>
