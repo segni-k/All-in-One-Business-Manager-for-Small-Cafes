@@ -14,6 +14,7 @@ import {
   DashboardData,
   NotificationsResponse,
   PaginatedResponse,
+  InventoryTransaction,
 } from "./types";
 
 function normalizeApiUrl(rawUrl: string | undefined): string {
@@ -272,6 +273,50 @@ export const notifications = {
     request<{ data: { id: number; read_at: string | null } }>(`/notifications/${id}/seen`, {
       method: "POST",
     }),
+};
+
+// ---- Inventory ----
+export const inventory = {
+  transactions: (params?: {
+    product_id?: number;
+    type?: "sale" | "restock" | "adjustment";
+    from?: string;
+    to?: string;
+    page?: number;
+    per_page?: number;
+  }) => {
+    const qs = new URLSearchParams(
+      Object.entries(params ?? {})
+        .filter(([, value]) => value !== undefined && value !== null)
+        .map(([key, value]) => [key, String(value)])
+    ).toString();
+
+    return request<PaginatedResponse<InventoryTransaction>>(
+      `/inventory/transactions${qs ? `?${qs}` : ""}`
+    );
+  },
+  restock: async (payload: {
+    product_id: number;
+    quantity: number;
+    notes?: string;
+  }) =>
+    unwrapData(
+      await request<{ data: Product } | Product>("/inventory/restock", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      })
+    ),
+  adjust: async (payload: {
+    product_id: number;
+    new_stock: number;
+    notes?: string;
+  }) =>
+    unwrapData(
+      await request<{ data: Product } | Product>("/inventory/adjust", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      })
+    ),
 };
 
 export { ApiError };

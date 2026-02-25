@@ -258,3 +258,20 @@ export interface PaginatedResponse<T> {
   per_page: number;
   total: number;
 }
+
+// ---- Inventory ----
+export type InventoryTransactionType = "sale" | "restock" | "adjustment";
+
+export interface InventoryTransaction {
+  id: number;
+  product_id: number;
+  user_id?: number | null;
+  type: InventoryTransactionType;
+  quantity: number;
+  reference_type?: string | null;
+  reference_id?: number | null;
+  notes?: string | null;
+  created_at: string;
+  product?: Product;
+  user?: Pick<User, "id" | "name" | "email">;
+}

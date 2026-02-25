@@ -7,6 +7,7 @@ import {
   orders,
   reports,
   getApiUrl,
+  inventory,
 } from "./api";
 
 import {
@@ -21,6 +22,7 @@ import {
   OverallReport,
   PaginatedResponse,
   Category,
+  InventoryTransaction,
 } from "./types";
 
 const swrBaseOptions = {
@@ -247,6 +249,37 @@ export function useOverallReport() {
       const res = await reports.overall();
       return "data" in res ? res.data : res;
     },
+    swrBaseOptions
+  );
+}
+
+// ==============================
+// ---- Inventory ----
+export function useInventoryTransactions(params?: {
+  product_id?: number;
+  type?: "sale" | "restock" | "adjustment";
+  from?: string;
+  to?: string;
+  page?: number;
+  per_page?: number;
+  enabled?: boolean;
+}) {
+  const enabled = params?.enabled ?? true;
+  const query = { ...(params ?? {}) } as {
+    product_id?: number;
+    type?: "sale" | "restock" | "adjustment";
+    from?: string;
+    to?: string;
+    page?: number;
+    per_page?: number;
+    enabled?: boolean;
+  };
+  delete query.enabled;
+  const key = query ? ["inventory-transactions", query] : "inventory-transactions";
+
+  return useSWR<PaginatedResponse<InventoryTransaction>>(
+    getApiUrl() && enabled ? key : null,
+    async () => inventory.transactions(query),
     swrBaseOptions
   );
 }

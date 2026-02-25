@@ -8,6 +8,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\POS\ProductController;
+use App\Http\Controllers\InventoryController;
 
 Route::get('/', function () {
     return response()->json([
@@ -52,6 +53,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{product}', [ProductController::class, 'update']);
         Route::delete('/{product}', [ProductController::class, 'destroy']);
         Route::post('/{id}/restore', [ProductController::class, 'restore']);
+    });
+
+    // Inventory adjustments (manager, admin)
+    Route::middleware('permission:manage_inventory')->prefix('inventory')->group(function () {
+        Route::get('/transactions', [InventoryController::class, 'transactions']);
+        Route::post('/restock', [InventoryController::class, 'restock']);
+        Route::post('/adjust', [InventoryController::class, 'adjust']);
     });
 
     // -----------------------------

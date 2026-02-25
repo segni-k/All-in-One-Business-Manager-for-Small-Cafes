@@ -10,6 +10,7 @@ import {
   ShoppingCart,
   BarChart3,
   Bell,
+  Store,
   LogOut,
   ChevronUp,
   User,
@@ -60,6 +61,18 @@ const mainNav: NavItem[] = [
     permission: "manage_staff",
   },
   { title: "Products", href: "/dashboard/products", icon: Package },
+  {
+    title: "Inventory",
+    href: "/dashboard/inventory",
+    icon: Package,
+    permission: "manage_inventory",
+  },
+  {
+    title: "POS",
+    href: "/dashboard/pos",
+    icon: Store,
+    permission: "use_pos",
+  },
   {
     title: "Orders",
     href: "/dashboard/orders",
