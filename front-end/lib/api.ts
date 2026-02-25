@@ -57,6 +57,18 @@ export function removeToken() {
   localStorage.removeItem("auth_token");
 }
 
+function unwrapData<T>(payload: T | { data: T }): T {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "data" in payload
+  ) {
+    return (payload as { data: T }).data;
+  }
+
+  return payload as T;
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   if (!API_URL) throw new ApiError("API URL not set", 0);
 
@@ -130,16 +142,16 @@ export const profile = {
 // ---- Staff ----
 export const staff = {
   list: () => request<StaffMember[] | { data: StaffMember[] }>("/staff"),
-  create: (data: StaffPayload) =>
-    request<{ data: StaffMember }>("/staff", {
+  create: async (data: StaffPayload) =>
+    unwrapData(await request<StaffMember | { data: StaffMember }>("/staff", {
       method: "POST",
       body: JSON.stringify(data),
-    }),
-  update: (id: number, data: Partial<StaffPayload>) =>
-    request<{ data: StaffMember }>(`/staff/${id}`, {
+    })),
+  update: async (id: number, data: Partial<StaffPayload>) =>
+    unwrapData(await request<StaffMember | { data: StaffMember }>(`/staff/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
-    }),
+    })),
   delete: (id: number) => request<void>(`/staff/${id}`, { method: "DELETE" }),
 };
 
@@ -158,6 +170,7 @@ export const products = {
       current_page: number;
       data: Product[];
       last_page: number;
+      per_page: number;
       total: number;
     }>(`/products${qs ? `?${qs}` : ""}`);
 
@@ -165,35 +178,37 @@ export const products = {
       data: res.data,
       current_page: res.current_page,
       last_page: res.last_page,
+      per_page: res.per_page,
       total: res.total,
     } as PaginatedResponse<Product>;
   },
 
-  show: (id: number) => request<{ data: Product }>(`/products/${id}`),
+  show: async (id: number) =>
+    unwrapData(await request<Product | { data: Product }>(`/products/${id}`)),
 
-  create: (data: ProductPayload) =>
-    request<{ data: Product }>("/products", {
+  create: async (data: ProductPayload) =>
+    unwrapData(await request<Product | { data: Product }>("/products", {
       method: "POST",
       body: JSON.stringify(data),
-    }),
+    })),
 
-  update: (id: number, data: Partial<ProductPayload>) =>
-    request<{ data: Product }>(`/products/${id}`, {
+  update: async (id: number, data: Partial<ProductPayload>) =>
+    unwrapData(await request<Product | { data: Product }>(`/products/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
-    }),
+    })),
 
   delete: (id: number) => request<void>(`/products/${id}`, { method: "DELETE" }),
 
-  restore: (id: number) =>
-    request<{ data: Product }>(`/products/${id}/restore`, { method: "POST" }),
+  restore: async (id: number) =>
+    unwrapData(await request<Product | { data: Product }>(`/products/${id}/restore`, { method: "POST" })),
 
   categories: () => request<{ data: Category[] }>("/products/categories"),
-  createCategory: (data: { name: string }) =>
-    request<{ data: Category }>("/products/categories", {
+  createCategory: async (data: { name: string }) =>
+    unwrapData(await request<Category | { data: Category }>("/products/categories", {
       method: "POST",
       body: JSON.stringify(data),
-    }),
+    })),
 };
 
 // ---- Orders ----
@@ -205,18 +220,20 @@ export const orders = {
     return request<PaginatedResponse<Order>>(`/orders${qs ? `?${qs}` : ""}`);
   },
 
-  create: (data: OrderPayload) =>
-    request<{ data: Order }>("/orders", {
+  create: async (data: OrderPayload) =>
+    unwrapData(await request<Order | { data: Order }>("/orders", {
       method: "POST",
       body: JSON.stringify(data),
-    }),
-  update: (id: number, data: Partial<OrderPayload>) =>
-    request<Order>(`/orders/${id}`, {
+    })),
+  update: async (id: number, data: Partial<OrderPayload>) =>
+    unwrapData(await request<Order | { data: Order }>(`/orders/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
-    }),
-  cancel: (id: number) => request<Order>(`/orders/${id}/cancel`, { method: "POST" }),
-  complete: (id: number) => request<Order>(`/orders/${id}/complete`, { method: "POST" }),
+    })),
+  cancel: async (id: number) =>
+    unwrapData(await request<Order | { data: Order }>(`/orders/${id}/cancel`, { method: "POST" })),
+  complete: async (id: number) =>
+    unwrapData(await request<Order | { data: Order }>(`/orders/${id}/complete`, { method: "POST" })),
 };
 
 // ---- Reports ----

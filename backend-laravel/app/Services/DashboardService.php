@@ -23,17 +23,31 @@ class DashboardService
     {
         $today = Carbon::today()->toDateString();
 
-        $todayOrders = Order::with('items.product')
+        $todaySummary = Order::query()
             ->whereDate('created_at', $today)
             ->where('status', '!=', 'cancelled')
-            ->get();
+            ->selectRaw('COALESCE(SUM(grand_total), 0) as total_sales')
+            ->selectRaw('COUNT(*) as order_count')
+            ->first();
 
-        $pendingOrders = Order::with('items.product', 'user')
+        $pendingOrdersCount = Order::query()
+            ->where('status', 'pending')
+            ->count();
+
+        $pendingOrdersList = Order::query()
+            ->with([
+                'items.product:id,name,sku,image_url,price,cost,stock,category_id,is_active,deleted_at,created_at,updated_at',
+                'user:id,name,email,avatar_url,role_id,is_active,created_at,updated_at',
+            ])
             ->where('status', 'pending')
             ->latest()
+            ->take(25)
             ->get();
 
-        $lowStockProducts = Product::where('stock', '<=', $this->lowStockThreshold)->get();
+        $lowStockProducts = Product::query()
+            ->where('stock', '<=', $this->lowStockThreshold)
+            ->orderBy('stock')
+            ->get();
 
         $dailyProfitLoss = $this->reportService->dailyProfitLoss($today);
         $monthlyProfitLoss = $this->reportService->monthlyProfitLoss();
@@ -45,17 +59,21 @@ class DashboardService
         ];
         $dailyTrends = $this->reportService->dailyTrend(14);
 
-        $recentOrders = Order::with('items.product', 'user')
+        $recentOrders = Order::query()
+            ->with([
+                'items.product:id,name,sku,image_url,price,cost,stock,category_id,is_active,deleted_at,created_at,updated_at',
+                'user:id,name,email,avatar_url,role_id,is_active,created_at,updated_at',
+            ])
             ->latest()
             ->take(5)
             ->get();
 
         return [
-            'todays_sales' => (float) $todayOrders->sum('grand_total'),
-            'today_orders_count' => (int) $todayOrders->count(),
-            'pending_orders' => (int) $pendingOrders->count(),
-            'pending_orders_count' => (int) $pendingOrders->count(),
-            'pending_orders_list' => $pendingOrders,
+            'todays_sales' => (float) ($todaySummary?->total_sales ?? 0),
+            'today_orders_count' => (int) ($todaySummary?->order_count ?? 0),
+            'pending_orders' => (int) $pendingOrdersCount,
+            'pending_orders_count' => (int) $pendingOrdersCount,
+            'pending_orders_list' => $pendingOrdersList,
             'low_stock_products' => $lowStockProducts,
             'daily_profit_loss' => $dailyProfitLoss,
             'monthly_profit_loss' => $monthlyProfitLoss,

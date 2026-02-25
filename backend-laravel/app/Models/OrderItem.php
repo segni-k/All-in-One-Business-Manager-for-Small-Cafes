@@ -11,6 +11,15 @@ class OrderItem extends Model
 
     protected $fillable = ['order_id','product_id','quantity','price','subtotal'];
 
+    protected $casts = [
+        'price' => 'decimal:2',
+        'subtotal' => 'decimal:2',
+    ];
+
+    protected $appends = [
+        'unit_price',
+    ];
+
     public function order(){
         return $this->belongsTo(Order::class);
     }
@@ -18,5 +27,9 @@ class OrderItem extends Model
     public function product(){
         return $this->belongsTo(Product::class);
     }
-}
 
+    public function getUnitPriceAttribute(): float
+    {
+        return (float) ($this->price ?? 0);
+    }
+}

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Staff;
 use App\Http\Controllers\Controller;
 use App\Models\StaffRole;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
 class StaffController extends Controller
@@ -15,10 +16,17 @@ class StaffController extends Controller
      */
     public function index()
     {
-        return response()->json(
-            User::with('role.permissions')->get(),
-            200
-        );
+        try {
+            return response()->json([
+                'data' => User::with('role.permissions')->get(),
+            ], 200);
+        } catch (QueryException $exception) {
+            report($exception);
+            return response()->json([
+                'message' => 'Staff members are temporarily unavailable due to a database issue.',
+                'data' => [],
+            ], 503);
+        }
     }
 
     /**
@@ -47,10 +55,9 @@ class StaffController extends Controller
             'role_id' => $request->role_id
         ]);
 
-        return response()->json(
-            $user->load('role.permissions'),
-            201
-        );
+        return response()->json([
+            'data' => $user->load('role.permissions'),
+        ], 201);
     }
 
     /**
@@ -90,20 +97,8 @@ class StaffController extends Controller
 
     $user->update($data); // <-- This saves the data
 
-    // Return clean JSON
     return response()->json([
-        'id' => $user->id,
-        'name' => $user->name,
-        'email' => $user->email,
-        'is_active' => $user->is_active,
-        'role' => $user->role ? [
-            'id' => $user->role->id,
-            'name' => $user->role->name,
-            'permissions' => $user->role->permissions->map(fn($p) => [
-                'id' => $p->id,
-                'name' => $p->name
-            ])
-        ] : null
+        'data' => $user->fresh()->load('role.permissions'),
     ], 200);
 }
     /**
@@ -121,4 +116,3 @@ class StaffController extends Controller
         return response()->json(null, 204);
     }
 }
-

@@ -8,7 +8,7 @@ export type Permission =
 
 export interface Role {
   id: number;
-  name: "admin" | "manager" | "pos_staff";
+  name: "admin" | "manager" | "pos_staff" | "cashier";
   description: string | null;
   permissions: {
     id: number;

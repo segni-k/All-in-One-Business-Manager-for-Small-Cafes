@@ -91,6 +91,7 @@ function getRoleLabel(role: string) {
     case "manager":
       return "Manager";
     case "pos_staff":
+    case "cashier":
       return "POS Staff";
     default:
       return role;
@@ -104,6 +105,7 @@ function getRoleBadgeColor(role: string) {
     case "manager":
       return "bg-chart-2 text-card";
     case "pos_staff":
+    case "cashier":
       return "bg-secondary text-secondary-foreground";
     default:
       return "";

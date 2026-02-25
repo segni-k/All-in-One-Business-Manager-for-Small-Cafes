@@ -72,7 +72,7 @@ import type { StaffMember, StaffPayload, StaffStatus } from "@/lib/types";
 const ROLES = [
   { id: 1, value: "admin", label: "Admin" },
   { id: 2, value: "manager", label: "Manager" },
-  { id: 3, value: "pos_staff", label: "POS Staff" },
+  { id: 3, value: "cashier", label: "POS Staff" },
 ] as const;
 
 const STATUSES: { value: StaffStatus; label: string }[] = [
@@ -81,6 +81,7 @@ const STATUSES: { value: StaffStatus; label: string }[] = [
 ];
 
 function getRoleLabel(role: string) {
+  if (role === "pos_staff") return "POS Staff";
   return ROLES.find((r) => r.value === role)?.label ?? role;
 }
 

@@ -69,13 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasPermission = useCallback(
     (perm: Permission) => {
-      if (!user) return false;
+      if (!user || !user.role) return false;
 
       // Admin has all permissions
       if (user.role.name === "admin") return true;
 
       // Check backend permissions array
-      return user.role.permissions.some((p) => p.name === perm);
+      return (user.role.permissions ?? []).some((p) => p.name === perm);
     },
     [user]
   );

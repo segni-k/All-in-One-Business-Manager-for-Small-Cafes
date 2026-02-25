@@ -85,7 +85,7 @@ class POSService
             }
 
             $order->update([
-                'total' => $total,
+                'subtotal' => $total,
                 'grand_total' => max(0, $total - ($data['discount'] ?? 0)),
             ]);
 
@@ -165,7 +165,7 @@ class POSService
             }
 
             $order->update([
-                'total' => $total,
+                'subtotal' => $total,
                 'grand_total' => max(0, $total - ($data['discount'] ?? 0)),
                 'discount' => $data['discount'] ?? 0,
                 'payment_method' => $data['payment_method'],

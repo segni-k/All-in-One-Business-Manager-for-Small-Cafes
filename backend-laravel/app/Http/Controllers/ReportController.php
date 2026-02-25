@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\ReportService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,11 +22,18 @@ class ReportController extends Controller
      */
     public function daily(Request $request): JsonResponse
     {
-        $date = $request->query('date');
-        $report = $date
-            ? $this->reportService->dailyProfitLoss($date)
-            : $this->reportService->dailyTrend((int) $request->query('days', 30));
-        return response()->json($report, 200);
+        try {
+            $date = $request->query('date');
+            $report = $date
+                ? $this->reportService->dailyProfitLoss($date)
+                : $this->reportService->dailyTrend((int) $request->query('days', 30));
+            return response()->json($report, 200);
+        } catch (QueryException $exception) {
+            report($exception);
+            return response()->json([
+                'message' => 'Reports are temporarily unavailable due to a database issue.',
+            ], 503);
+        }
     }
 
     /**
@@ -33,13 +41,20 @@ class ReportController extends Controller
      */
     public function monthly(Request $request): JsonResponse
     {
-        $year = $request->query('year');
-        $month = $request->query('month');
-        $report = $month
-            ? $this->reportService->monthlyProfitLoss((int) $month, $year ? (int) $year : null)
-            : $this->reportService->monthlyTrend($year ? (int) $year : null);
+        try {
+            $year = $request->query('year');
+            $month = $request->query('month');
+            $report = $month
+                ? $this->reportService->monthlyProfitLoss((int) $month, $year ? (int) $year : null)
+                : $this->reportService->monthlyTrend($year ? (int) $year : null);
 
-        return response()->json($report, 200);
+            return response()->json($report, 200);
+        } catch (QueryException $exception) {
+            report($exception);
+            return response()->json([
+                'message' => 'Reports are temporarily unavailable due to a database issue.',
+            ], 503);
+        }
     }
 
     /**
@@ -47,9 +62,16 @@ class ReportController extends Controller
      */
     public function yearly(Request $request): JsonResponse
     {
-        $years = (int) $request->query('years', 5);
-        $report = $this->reportService->yearlyTrend($years);
-        return response()->json($report, 200);
+        try {
+            $years = (int) $request->query('years', 5);
+            $report = $this->reportService->yearlyTrend($years);
+            return response()->json($report, 200);
+        } catch (QueryException $exception) {
+            report($exception);
+            return response()->json([
+                'message' => 'Reports are temporarily unavailable due to a database issue.',
+            ], 503);
+        }
     }
 
     /**
@@ -57,7 +79,14 @@ class ReportController extends Controller
      */
     public function overall(): JsonResponse
     {
-        $report = $this->reportService->overallSummary();
-        return response()->json($report, 200);
+        try {
+            $report = $this->reportService->overallSummary();
+            return response()->json($report, 200);
+        } catch (QueryException $exception) {
+            report($exception);
+            return response()->json([
+                'message' => 'Reports are temporarily unavailable due to a database issue.',
+            ], 503);
+        }
     }
 }

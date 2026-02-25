@@ -16,9 +16,20 @@ class Order extends Model
         'grand_total',
         'status',
         'payment_status',
-        'payment_method'
+        'payment_method',
+        'paid_at',
     ];
 
+    protected $casts = [
+        'subtotal' => 'decimal:2',
+        'discount' => 'decimal:2',
+        'grand_total' => 'decimal:2',
+        'paid_at' => 'datetime',
+    ];
+
+    protected $appends = [
+        'total',
+    ];
 
     public function items()
     {
@@ -28,5 +39,10 @@ class Order extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function getTotalAttribute(): float
+    {
+        return (float) ($this->grand_total ?? 0);
     }
 }

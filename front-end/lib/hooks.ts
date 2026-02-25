@@ -23,6 +23,12 @@ import {
   Category,
 } from "./types";
 
+const swrBaseOptions = {
+  revalidateOnFocus: false,
+  dedupingInterval: 5000,
+  keepPreviousData: true,
+} as const;
+
 function normalizeCollection<T>(payload: T[] | { data: T[] } | undefined): T[] {
   if (!payload) return [];
   return Array.isArray(payload) ? payload : payload.data ?? [];
@@ -57,7 +63,7 @@ export function useDashboard() {
       const res = await dashboard.get();
       return "data" in res ? res.data : res;
     },
-    { refreshInterval: 30000 }
+    { ...swrBaseOptions, refreshInterval: 30000 }
   );
 }
 
@@ -81,7 +87,7 @@ export function useNotifications(options?: { enabled?: boolean }) {
         unseen_count: res.unseen_count ?? 0,
       };
     },
-    { refreshInterval: 30000 }
+    { ...swrBaseOptions, refreshInterval: 30000 }
   );
 }
 
@@ -97,7 +103,8 @@ export function useStaff() {
         ...member,
         status: member.is_active ? "active" : "inactive",
       }));
-    }
+    },
+    swrBaseOptions
   );
 }
 
@@ -115,7 +122,8 @@ export function useProducts(params?: {
     async () => {
       const res = await products.list(params);
       return res;
-    }
+    },
+    swrBaseOptions
   );
 }
 
@@ -152,7 +160,8 @@ export function useCategories() {
     async () => {
       const res = await products.categories();
       return res.data ?? [];
-    }
+    },
+    swrBaseOptions
   );
 }
 
@@ -165,7 +174,8 @@ export function useOrders(params?: { page?: number }) {
     getApiUrl() ? key : null,
     async () => {
       return await orders.list(params);
-    }
+    },
+    swrBaseOptions
   );
 }
 
@@ -187,7 +197,8 @@ export function useDailyReports(params?: { date?: string }) {
           (item as DailyReport & { orders_count?: number }).orders_count ??
           0,
       }));
-    }
+    },
+    swrBaseOptions
   );
 }
 
@@ -207,7 +218,8 @@ export function useMonthlyReports(params?: { month?: string; year?: string }) {
           (item as MonthlyReport & { orders_count?: number }).orders_count ??
           0,
       }));
-    }
+    },
+    swrBaseOptions
   );
 }
 
@@ -221,7 +233,8 @@ export function useYearlyReports(params?: { years?: string }) {
     async () => {
       const res = await reports.yearly(params);
       return normalizeCollection(res);
-    }
+    },
+    swrBaseOptions
   );
 }
 
@@ -231,6 +244,7 @@ export function useOverallReport() {
     async () => {
       const res = await reports.overall();
       return "data" in res ? res.data : res;
-    }
+    },
+    swrBaseOptions
   );
 }

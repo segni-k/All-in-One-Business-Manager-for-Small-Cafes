@@ -19,16 +19,18 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        $withInactive = $request->boolean('with_inactive');
+        $withInactive = $request->boolean('with_inactive') || $request->boolean('include_inactive');
 
         $products = Product::query()
             ->when($withInactive, fn ($q) => $q->withTrashed())
             ->when(!$withInactive, fn ($q) => $q->where('is_active', true))
             ->when(
                 $request->filled('search'),
-                fn ($q) =>
-                    $q->where('name', 'like', '%' . $request->search . '%')
-                      ->orWhere('sku', 'like', '%' . $request->search . '%')
+                fn ($q) => $q->where(function ($searchQuery) use ($request) {
+                    $searchQuery
+                        ->where('name', 'like', '%' . $request->search . '%')
+                        ->orWhere('sku', 'like', '%' . $request->search . '%');
+                })
             )
             ->with('category:id,name')
             ->latest()
@@ -55,9 +57,9 @@ class ProductController extends Controller
      */
     public function show(Product $product)
     {
-        return response()->json(
-            $product->load('category')
-        );
+        return response()->json([
+            'data' => $product->load('category'),
+        ]);
     }
 
     /**
@@ -79,9 +81,10 @@ class ProductController extends Controller
     public function destroy(Product $product)
     {
         $product->update(['is_active' => false]);
+        $product->delete();
 
         return response()->json([
-            'message' => 'Product disabled successfully'
+            'message' => 'Product deleted successfully'
         ]);
     }
 
@@ -93,6 +96,7 @@ class ProductController extends Controller
         $product = Product::withTrashed()->findOrFail($id);
 
         $product->restore();
+        $product->update(['is_active' => true]);
 
         return response()->json([
             'message' => 'Product restored successfully',

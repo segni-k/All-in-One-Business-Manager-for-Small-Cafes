@@ -74,6 +74,10 @@ class NotificationService
      */
     public function latest(int $limit = 50): Collection
     {
-        return Notification::latest()->take($limit)->get();
+        return Notification::query()
+            ->select(['id', 'type', 'message', 'created_at', 'updated_at'])
+            ->latest('id')
+            ->take($limit)
+            ->get();
     }
 }

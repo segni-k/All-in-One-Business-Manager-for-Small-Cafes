@@ -158,7 +158,7 @@ function ProductFormDialog({
     try {
       const res = await productsApi.createCategory({ name: newCategoryName.trim() });
       await mutateCategories();
-      setCategoryId(res.data.id);
+      setCategoryId(res.id);
       setNewCategoryName("");
       setCategoryDialogOpen(false);
       toast.success("Category created successfully.");

@@ -103,7 +103,7 @@ export default function ProductProfilePage() {
     productsApi
       .show(productId)
       .then((res) => {
-        setProduct(res.data ?? (res as unknown as Product));
+        setProduct(res as Product);
       })
       .catch((err) => {
         setError(

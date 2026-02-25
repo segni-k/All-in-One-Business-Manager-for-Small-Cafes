@@ -45,6 +45,12 @@ interface NavItem {
   permission?: Permission;
 }
 
+function formatRoleName(roleName?: string) {
+  if (!roleName) return "";
+  if (roleName === "pos_staff" || roleName === "cashier") return "POS Staff";
+  return roleName;
+}
+
 const mainNav: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   {
@@ -173,7 +179,7 @@ export function AppSidebar() {
                       {user?.name ?? "User"}
                     </span>
                     <span className="text-xs text-sidebar-foreground/60">
-                      {user?.role.name ?? ""}
+                      {formatRoleName(user?.role?.name)}
                     </span>
                   </div>
                   <ChevronUp className="ml-auto h-4 w-4" />
