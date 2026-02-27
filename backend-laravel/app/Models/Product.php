@@ -3,8 +3,22 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string $sku
+ * @property int|null $category_id
+ * @property string|null $image_url
+ * @property float|string $price
+ * @property float|string $cost
+ * @property int $stock
+ * @property int|null $low_stock_threshold
+ * @property bool $is_active
+ */
 class Product extends Model
 {
     use SoftDeletes;
@@ -30,12 +44,12 @@ class Product extends Model
      | Relationships
      ====================== */
 
-    public function category()
+    public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
     }
 
-    public function orderItems()
+    public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
     }
@@ -53,5 +67,4 @@ class Product extends Model
     {
         return (float) ($this->price - $this->cost);
     }
-
 }

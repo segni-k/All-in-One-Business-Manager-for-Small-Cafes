@@ -4,7 +4,21 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property float|string $subtotal
+ * @property float|string $discount
+ * @property float|string|null $grand_total
+ * @property float|string|null $total
+ * @property string $status
+ * @property string $payment_status
+ * @property string|null $payment_method
+ * @property \Illuminate\Support\Carbon|null $paid_at
+ */
 class Order extends Model
 {
     use HasFactory;
@@ -33,12 +47,12 @@ class Order extends Model
         'total',
     ];
 
-    public function items()
+    public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }

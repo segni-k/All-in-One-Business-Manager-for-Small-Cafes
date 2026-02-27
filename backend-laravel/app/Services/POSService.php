@@ -6,16 +6,20 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class POSService
 {
     protected InventoryService $inventoryService;
+
     private ?bool $hasGrandTotalColumn = null;
+
     private ?bool $hasTotalColumn = null;
+
     private ?bool $hasPriceColumn = null;
+
     private ?bool $hasUnitPriceColumn = null;
 
     public function __construct(InventoryService $inventoryService)
@@ -46,7 +50,7 @@ class POSService
             foreach ($data['items'] as $itemData) {
                 $product = Product::findOrFail($itemData['product_id']);
 
-                if (!$product->is_active) {
+                if (! $product->is_active) {
                     throw new HttpException(
                         422,
                         "{$product->name} is unavailable"
@@ -147,7 +151,7 @@ class POSService
             foreach ($data['items'] as $itemData) {
                 $product = Product::findOrFail($itemData['product_id']);
 
-                if (!$product->is_active) {
+                if (! $product->is_active) {
                     throw new HttpException(
                         422,
                         "{$product->name} is unavailable"
@@ -252,7 +256,7 @@ class POSService
             throw new HttpException(400, 'Order is already cancelled');
         }
 
-        if (!in_array($order->payment_status, ['pending', 'paid'])) {
+        if (! in_array($order->payment_status, ['pending', 'paid'])) {
             throw new HttpException(403, 'This order cannot be cancelled');
         }
 

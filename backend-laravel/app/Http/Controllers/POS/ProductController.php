@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\POS;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateProductRequest;
 use App\Models\Category;
 use App\Models\Product;
 use App\Services\NotificationService;
-use App\Http\Requests\StoreProductRequest;
-use App\Http\Requests\UpdateProductRequest;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
@@ -25,13 +25,13 @@ class ProductController extends Controller
 
         $products = Product::query()
             ->when($withInactive, fn ($q) => $q->withTrashed())
-            ->when(!$withInactive, fn ($q) => $q->where('is_active', true))
+            ->when(! $withInactive, fn ($q) => $q->where('is_active', true))
             ->when(
                 $request->filled('search'),
                 fn ($q) => $q->where(function ($searchQuery) use ($request) {
                     $searchQuery
-                        ->where('name', 'like', '%' . $request->search . '%')
-                        ->orWhere('sku', 'like', '%' . $request->search . '%');
+                        ->where('name', 'like', '%'.$request->search.'%')
+                        ->orWhere('sku', 'like', '%'.$request->search.'%');
                 })
             )
             ->with('category:id,name')
@@ -88,7 +88,7 @@ class ProductController extends Controller
         $product->delete();
 
         return response()->json([
-            'message' => 'Product deleted successfully'
+            'message' => 'Product deleted successfully',
         ]);
     }
 
