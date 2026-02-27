@@ -10,6 +10,7 @@ import {
   ShoppingCart,
   RefreshCw,
   CalendarDays,
+  Printer,
 } from "lucide-react";
 import {
   Card,
@@ -46,6 +47,8 @@ import {
   useMonthlyReports,
   useYearlyReports,
   useOverallReport,
+  useInventoryTransactions,
+  useNotifications,
 } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth-context";
 import { format } from "date-fns";
@@ -63,6 +66,12 @@ const tooltipStyle = {
   borderRadius: "0.5rem",
   fontSize: "12px",
 };
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return format(date, "MMM d, yyyy h:mm a");
+}
 
 function SummaryCards({
   totalSales,
@@ -360,6 +369,51 @@ function OverallTab() {
 export default function ReportsPage() {
   const { hasPermission } = useAuth();
   const [tab, setTab] = useState("daily");
+  const canViewNotifications = hasPermission("use_pos") || hasPermission("view_reports");
+  const canViewInventory = hasPermission("manage_inventory");
+
+  const { data: dailyData } = useDailyReports();
+  const { data: overallData } = useOverallReport();
+  const { data: notificationsData } = useNotifications({ enabled: canViewNotifications });
+  const { data: inventoryData } = useInventoryTransactions({
+    page: 1,
+    per_page: 100,
+    enabled: canViewInventory,
+  });
+
+  const printableSales = useMemo(() => {
+    const rows = dailyData ?? [];
+
+    return {
+      totalSales: rows.reduce((sum, item) => sum + item.total_sales, 0),
+      totalCost: rows.reduce((sum, item) => sum + item.total_cost, 0),
+      totalProfit: rows.reduce((sum, item) => sum + item.profit, 0),
+      totalOrders: rows.reduce((sum, item) => sum + item.order_count, 0),
+      rows,
+    };
+  }, [dailyData]);
+
+  const activityRows = useMemo(() => {
+    const notificationRows = (notificationsData?.data ?? []).map((item) => ({
+      created_at: item.created_at,
+      source: "Notification",
+      type: item.type,
+      detail: item.message,
+    }));
+
+    const inventoryRows = (inventoryData?.data ?? []).map((item) => ({
+      created_at: item.created_at,
+      source: "Inventory",
+      type: item.type,
+      detail: `${item.product?.name ?? `Product #${item.product_id}`} (${item.quantity})${
+        item.notes ? ` — ${item.notes}` : ""
+      }`,
+    }));
+
+    return [...notificationRows, ...inventoryRows]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 100);
+  }, [inventoryData?.data, notificationsData?.data]);
 
   if (!hasPermission("view_reports")) {
     return (
@@ -377,7 +431,7 @@ export default function ReportsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="print:hidden">
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
           <BarChart3 className="h-6 w-6" />
           Reports
@@ -385,7 +439,22 @@ export default function ReportsPage() {
         <p className="text-muted-foreground">Daily, monthly, yearly and all-time performance.</p>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
+      <Card className="print:hidden">
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <div>
+            <CardTitle>Printable Sales & Activity Report</CardTitle>
+            <CardDescription>
+              Print a clean summary with sales totals and recent business activity.
+            </CardDescription>
+          </div>
+          <Button onClick={() => window.print()}>
+            <Printer className="mr-2 h-4 w-4" />
+            Print Report
+          </Button>
+        </CardHeader>
+      </Card>
+
+      <Tabs value={tab} onValueChange={setTab} className="print:hidden">
         <TabsList className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:grid-cols-4">
           <TabsTrigger value="daily">Daily</TabsTrigger>
           <TabsTrigger value="monthly">Monthly</TabsTrigger>
@@ -405,6 +474,116 @@ export default function ReportsPage() {
           <OverallTab />
         </TabsContent>
       </Tabs>
+
+      <div className="hidden print:block space-y-6">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold">CafeOps Suite - Sales & Activity Report</h1>
+          <p className="text-sm text-muted-foreground">Generated: {format(new Date(), "PPP p")}</p>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Sales Summary</CardTitle>
+            <CardDescription>Based on daily reports</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Total Sales</TableHead>
+                  <TableHead>Total Cost</TableHead>
+                  <TableHead>Profit / Loss</TableHead>
+                  <TableHead>Total Orders</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="font-mono">{formatCurrency(overallData?.total_sales ?? printableSales.totalSales)}</TableCell>
+                  <TableCell className="font-mono">{formatCurrency(overallData?.total_cost ?? printableSales.totalCost)}</TableCell>
+                  <TableCell className="font-mono">{formatCurrency(overallData?.profit ?? printableSales.totalProfit)}</TableCell>
+                  <TableCell>{overallData?.order_count ?? printableSales.totalOrders}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Daily Sales Entries</CardTitle>
+            <CardDescription>Most recent daily totals</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Sales</TableHead>
+                  <TableHead>Cost</TableHead>
+                  <TableHead>Profit</TableHead>
+                  <TableHead>Orders</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {printableSales.rows.length ? (
+                  printableSales.rows.map((row) => (
+                    <TableRow key={row.date}>
+                      <TableCell>{formatDateTime(row.date)}</TableCell>
+                      <TableCell className="font-mono">{formatCurrency(row.total_sales)}</TableCell>
+                      <TableCell className="font-mono">{formatCurrency(row.total_cost)}</TableCell>
+                      <TableCell className="font-mono">{formatCurrency(row.profit)}</TableCell>
+                      <TableCell>{row.order_count}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      No daily sales data available.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Activity Log</CardTitle>
+            <CardDescription>Notifications and inventory activity</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Detail</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activityRows.length ? (
+                  activityRows.map((row, index) => (
+                    <TableRow key={`${row.source}-${row.created_at}-${index}`}>
+                      <TableCell>{formatDateTime(row.created_at)}</TableCell>
+                      <TableCell>{row.source}</TableCell>
+                      <TableCell>{row.type}</TableCell>
+                      <TableCell>{row.detail}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      No activity data available.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
