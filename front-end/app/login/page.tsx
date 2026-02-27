@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { AlertCircle, Loader2, LayoutDashboard } from "lucide-react";
 import { auth as authApi, setToken, getApiUrl } from "@/lib/api";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -45,6 +46,9 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="flex w-full max-w-md flex-col gap-6">
+        <div className="flex justify-end">
+          <ThemeToggle />
+        </div>
         <div className="flex flex-col items-center gap-2">
           <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
             <LayoutDashboard className="h-6 w-6 text-primary-foreground" />

@@ -6,12 +6,17 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class POSService
 {
     protected InventoryService $inventoryService;
+    private ?bool $hasGrandTotalColumn = null;
+    private ?bool $hasTotalColumn = null;
+    private ?bool $hasPriceColumn = null;
+    private ?bool $hasUnitPriceColumn = null;
 
     public function __construct(InventoryService $inventoryService)
     {
@@ -64,13 +69,22 @@ class POSService
 
                 $subtotal = $product->price * $itemData['quantity'];
 
-                OrderItem::create([
+                $orderItemPayload = [
                     'order_id' => $order->id,
                     'product_id' => $product->id,
                     'quantity' => $itemData['quantity'],
-                    'price' => $product->price,
                     'subtotal' => $subtotal,
-                ]);
+                ];
+
+                if ($this->orderItemsHasPriceColumn()) {
+                    $orderItemPayload['price'] = $product->price;
+                }
+
+                if ($this->orderItemsHasUnitPriceColumn()) {
+                    $orderItemPayload['unit_price'] = $product->price;
+                }
+
+                OrderItem::create($orderItemPayload);
 
                 // Deduct stock + log inventory transaction
                 $this->inventoryService->removeStock(
@@ -84,10 +98,21 @@ class POSService
                 $total += $subtotal;
             }
 
-            $order->update([
+            $orderUpdatePayload = [
                 'subtotal' => $total,
-                'grand_total' => max(0, $total - ($data['discount'] ?? 0)),
-            ]);
+            ];
+
+            $grandTotal = max(0, $total - ($data['discount'] ?? 0));
+
+            if ($this->ordersHasGrandTotalColumn()) {
+                $orderUpdatePayload['grand_total'] = $grandTotal;
+            }
+
+            if ($this->ordersHasTotalColumn()) {
+                $orderUpdatePayload['total'] = $grandTotal;
+            }
+
+            $order->update($orderUpdatePayload);
 
             return $order->load('items.product', 'user');
         });
@@ -145,13 +170,22 @@ class POSService
 
                 $subtotal = $product->price * $itemData['quantity'];
 
-                OrderItem::create([
+                $orderItemPayload = [
                     'order_id' => $order->id,
                     'product_id' => $product->id,
                     'quantity' => $itemData['quantity'],
-                    'price' => $product->price,
                     'subtotal' => $subtotal,
-                ]);
+                ];
+
+                if ($this->orderItemsHasPriceColumn()) {
+                    $orderItemPayload['price'] = $product->price;
+                }
+
+                if ($this->orderItemsHasUnitPriceColumn()) {
+                    $orderItemPayload['unit_price'] = $product->price;
+                }
+
+                OrderItem::create($orderItemPayload);
 
                 $this->inventoryService->removeStock(
                     product: $product,
@@ -164,13 +198,24 @@ class POSService
                 $total += $subtotal;
             }
 
-            $order->update([
+            $orderUpdatePayload = [
                 'subtotal' => $total,
-                'grand_total' => max(0, $total - ($data['discount'] ?? 0)),
                 'discount' => $data['discount'] ?? 0,
                 'payment_method' => $data['payment_method'],
                 'status' => $data['status'] ?? $order->status,
-            ]);
+            ];
+
+            $grandTotal = max(0, $total - ($data['discount'] ?? 0));
+
+            if ($this->ordersHasGrandTotalColumn()) {
+                $orderUpdatePayload['grand_total'] = $grandTotal;
+            }
+
+            if ($this->ordersHasTotalColumn()) {
+                $orderUpdatePayload['total'] = $grandTotal;
+            }
+
+            $order->update($orderUpdatePayload);
 
             return $order->load('items.product', 'user');
         });
@@ -233,5 +278,41 @@ class POSService
 
             return $order->load('items.product', 'user');
         });
+    }
+
+    private function ordersHasGrandTotalColumn(): bool
+    {
+        if ($this->hasGrandTotalColumn === null) {
+            $this->hasGrandTotalColumn = Schema::hasColumn('orders', 'grand_total');
+        }
+
+        return $this->hasGrandTotalColumn;
+    }
+
+    private function ordersHasTotalColumn(): bool
+    {
+        if ($this->hasTotalColumn === null) {
+            $this->hasTotalColumn = Schema::hasColumn('orders', 'total');
+        }
+
+        return $this->hasTotalColumn;
+    }
+
+    private function orderItemsHasPriceColumn(): bool
+    {
+        if ($this->hasPriceColumn === null) {
+            $this->hasPriceColumn = Schema::hasColumn('order_items', 'price');
+        }
+
+        return $this->hasPriceColumn;
+    }
+
+    private function orderItemsHasUnitPriceColumn(): bool
+    {
+        if ($this->hasUnitPriceColumn === null) {
+            $this->hasUnitPriceColumn = Schema::hasColumn('order_items', 'unit_price');
+        }
+
+        return $this->hasUnitPriceColumn;
     }
 }

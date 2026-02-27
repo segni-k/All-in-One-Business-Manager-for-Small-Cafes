@@ -66,14 +66,18 @@ class NotificationsApiTest extends TestCase
         $response->assertJsonPath('unseen_count', 1);
     }
 
-    public function test_notifications_endpoint_forbidden_without_use_pos_permission(): void
+    public function test_notifications_endpoint_returns_data_for_authenticated_user_without_use_pos_permission(): void
     {
         $user = $this->createUserWithPermissions([]);
         Sanctum::actingAs($user);
 
         $response = $this->getJson('/api/notifications');
 
-        $response->assertStatus(403);
+        $response->assertOk();
+        $response->assertJsonStructure([
+            'data',
+            'unseen_count',
+        ]);
     }
 }
 

@@ -85,13 +85,17 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // -----------------------------
-    // Dashboard & notifications (use existing POS permission)
+    // Dashboard (POS users)
     // -----------------------------
     Route::middleware('permission:use_pos')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index']);
-        Route::get('/notifications', [NotificationController::class, 'index']);
-        Route::post('/notifications/{id}/seen', [NotificationController::class, 'markSeen']);
     });
+
+    // -----------------------------
+    // Notifications (all authenticated users)
+    // -----------------------------
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/{id}/seen', [NotificationController::class, 'markSeen']);
 
 });
 

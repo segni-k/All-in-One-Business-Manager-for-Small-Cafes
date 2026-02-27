@@ -89,15 +89,13 @@ const mainNav: NavItem[] = [
     title: "Notifications",
     href: "/dashboard/notifications",
     icon: Bell,
-    permission: "use_pos",
   },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { user, logout, hasPermission } = useAuth();
-  const canUsePos = hasPermission("use_pos");
-  const { data: notificationsData } = useNotifications({ enabled: canUsePos });
+  const { data: notificationsData } = useNotifications({ enabled: !!user });
   const unseenCount = notificationsData?.unseen_count ?? 0;
 
   const visibleNav = mainNav.filter(

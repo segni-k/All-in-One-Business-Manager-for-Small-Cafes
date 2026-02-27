@@ -7,6 +7,7 @@ use App\Services\NotificationService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class NotificationController extends Controller
 {
@@ -30,8 +31,12 @@ class NotificationController extends Controller
         try {
             $user = $request->user();
             $notifications = $this->notificationService->latest($limit);
-            $readMap = $user->seenNotifications()
-                ->pluck('notification_user_reads.read_at', 'notifications.id');
+
+            $readMap = collect();
+            if (Schema::hasTable('notification_user_reads')) {
+                $readMap = $user->seenNotifications()
+                    ->pluck('notification_user_reads.read_at', 'notifications.id');
+            }
         } catch (QueryException $exception) {
             report($exception);
             return response()->json([
@@ -59,11 +64,15 @@ class NotificationController extends Controller
         });
 
         try {
-            $unseenCount = Notification::query()
-                ->whereDoesntHave('seenByUsers', function ($query) use ($user) {
-                    $query->where('users.id', $user->id);
-                })
-                ->count();
+            if (Schema::hasTable('notification_user_reads')) {
+                $unseenCount = Notification::query()
+                    ->whereDoesntHave('seenByUsers', function ($query) use ($user) {
+                        $query->where('users.id', $user->id);
+                    })
+                    ->count();
+            } else {
+                $unseenCount = Notification::query()->count();
+            }
         } catch (QueryException $exception) {
             report($exception);
             $unseenCount = 0;
@@ -80,6 +89,16 @@ class NotificationController extends Controller
      */
     public function markSeen(Request $request, int $id): JsonResponse
     {
+        if (! Schema::hasTable('notification_user_reads')) {
+            return response()->json([
+                'message' => 'Notification read-tracking is unavailable until migrations are applied.',
+                'data' => [
+                    'id' => $id,
+                    'read_at' => null,
+                ],
+            ], 200);
+        }
+
         try {
             $user = $request->user();
             $notification = Notification::query()->findOrFail($id);

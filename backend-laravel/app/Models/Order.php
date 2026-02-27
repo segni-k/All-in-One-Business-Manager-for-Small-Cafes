@@ -14,6 +14,7 @@ class Order extends Model
         'subtotal',
         'discount',
         'grand_total',
+        'total',
         'status',
         'payment_status',
         'payment_method',
@@ -24,6 +25,7 @@ class Order extends Model
         'subtotal' => 'decimal:2',
         'discount' => 'decimal:2',
         'grand_total' => 'decimal:2',
+        'total' => 'decimal:2',
         'paid_at' => 'datetime',
     ];
 
@@ -43,6 +45,11 @@ class Order extends Model
 
     public function getTotalAttribute(): float
     {
-        return (float) ($this->grand_total ?? 0);
+        $grandTotal = $this->attributes['grand_total'] ?? null;
+        if ($grandTotal !== null) {
+            return (float) $grandTotal;
+        }
+
+        return (float) ($this->attributes['total'] ?? 0);
     }
 }

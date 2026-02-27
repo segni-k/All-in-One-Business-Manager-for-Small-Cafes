@@ -19,7 +19,6 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNotifications } from "@/lib/hooks";
 import { notifications as notificationsApi } from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -45,27 +44,9 @@ function getNotificationBadge(type: string) {
 }
 
 export default function NotificationsPage() {
-  const { hasPermission } = useAuth();
-  const canUsePos = hasPermission("use_pos");
-  const { data, isLoading, error, mutate } = useNotifications({
-    enabled: canUsePos,
-  });
+  const { data, isLoading, error, mutate } = useNotifications();
   const notifications = data?.data ?? [];
   const unseenCount = data?.unseen_count ?? 0;
-
-  if (!canUsePos) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 py-20">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
-          <AlertTriangle className="h-6 w-6 text-destructive" />
-        </div>
-        <p className="text-sm font-medium text-foreground">Access Denied</p>
-        <p className="text-sm text-muted-foreground">
-          You do not have permission to view notifications.
-        </p>
-      </div>
-    );
-  }
 
   async function markSeen(id: number, readAt: string | null) {
     if (readAt) return;

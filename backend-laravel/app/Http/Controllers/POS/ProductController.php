@@ -5,8 +5,10 @@ namespace App\Http\Controllers\POS;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
+use App\Services\NotificationService;
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -45,6 +47,7 @@ class ProductController extends Controller
     public function store(StoreProductRequest $request)
     {
         $product = Product::create($request->validated());
+        $this->notifyIfLowStock($product);
 
         return response()->json([
             'message' => 'Product created successfully',
@@ -68,6 +71,7 @@ class ProductController extends Controller
     public function update(UpdateProductRequest $request, Product $product)
     {
         $product->update($request->validated());
+        $this->notifyIfLowStock($product->fresh());
 
         return response()->json([
             'message' => 'Product updated successfully',
@@ -133,5 +137,23 @@ class ProductController extends Controller
             'message' => 'Category created successfully',
             'data' => $category,
         ], 201);
+    }
+
+    private function notifyIfLowStock(Product $product): void
+    {
+        $threshold = (int) ($product->low_stock_threshold ?? 5);
+
+        if ($product->stock > $threshold) {
+            return;
+        }
+
+        try {
+            app(NotificationService::class)->send(
+                'low_stock',
+                "Product {$product->name} is low on stock ({$product->stock})"
+            );
+        } catch (QueryException $exception) {
+            report($exception);
+        }
     }
 }
